@@ -1,0 +1,47 @@
+# content-pipeline configuration.
+#
+# Everything personal (author name, aesthetic overrides, blog repo
+# path) is expressed here. The default shipped config is neutral; fork
+# it to your own tastes. If you override `active_aesthetic`, make sure
+# your override file is under `aesthetic/` and gitignored (anything
+# other than `default.yaml` there already is).
+
+# ── Author identity ──────────────────────────────────────────────
+author:
+  name: "dmarz"                           # your display name
+  handle: "@dmarz"                        # your social handle
+  blog_name: ""                           # optional
+  blog_url: ""                            # optional, used in tweet-thread close
+
+# ── Aesthetic ────────────────────────────────────────────────────
+# Points at the file under aesthetic/ whose voice/style knobs drive
+# every format's prompt. Default ships a neutral baseline; users who
+# want their own voice copy default.yaml and point here.
+active_aesthetic: "aesthetic/default.yaml"
+
+# ── Output ───────────────────────────────────────────────────────
+# All runtime outputs live under this root. Gitignored by default.
+# Each run creates a subdir `output/<date>-<slug>/` with:
+#   source.md                     the canonical input used for this run
+#   blog.md                       if the blog format was invoked
+#   tweet-thread.md               if the tweet-thread format was invoked
+#   explainer-video.html          if the explainer-video format was invoked
+#   _pipeline-snapshot/           frozen copy of prompts+aesthetic+config
+#                                 used for this run (for reproducibility)
+output_root: "output"
+
+# ── Format selection ─────────────────────────────────────────────
+# Which formats to run by default when no --formats flag is passed.
+# Order matters: tweet-thread pairs with explainer-video if video
+# was produced earlier in the same run.
+default_formats:
+  - explainer-video
+  - blog
+  - tweet-thread
+
+# ── Blog publishing (optional) ───────────────────────────────────
+# Only used if you run the `publish-blog` command. Safe to leave
+# empty if you'll hand-publish.
+blog_repo:
+  local_path: ""
+  remote: ""

@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>The Neural Computer Tech Tree</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background: #08090d;
+    font-family: 'Inter', sans-serif;
+    position: relative;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  /* Vignette */
+  body::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #title {
+    position: absolute;
+    top: 28px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.0);
+    z-index: 10;
+    transition: color 1.5s ease;
+  }
+  #title.visible { color: rgba(255,255,255,0.7); }
+  #title span {
+    color: rgba(100,200,255,0.0);
+    transition: color 1.5s ease;
+  }
+  #title.visible span { color: rgba(100,200,255,0.8); }
+
+  /* Canvas for connection lines and particles */
+  canvas#connections {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    z-index: 1;
+  }
+
+  /* Tier container */
+  .tree-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    z-index: 5;
+  }
+
+  /* Each tier */
+  .tier {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+  }
+  .tier.visible { opacity: 1; }
+
+  .tier-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    opacity: 0.7;
+  }
+
+  .tier-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    padding: 3px 12px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  .tier-items {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 1100px;
+  }
+
+  .tier-item {
+    padding: 12px 22px;
+    border-radius: 8px;
+    border: 1px solid;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transform: scale(0.85) translateY(10px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    position: relative;
+  }
+  .tier-item.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  .tier-item.pulse {
+    animation: itemPulse 0.8s ease-out;
+  }
+
+  @keyframes itemPulse {
+    0% { transform: scale(1); filter: brightness(1); }
+    30% { transform: scale(1.06); filter: brightness(1.5); }
+    100% { transform: scale(1); filter: brightness(1); }
+  }
+
+  .item-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .item-detail {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 300;
+    opacity: 0.7;
+  }
+
+  /* Tier 0 - Green */
+  .tier-0 .tier-label { color: #4ade80; }
+  .tier-0 .tier-status { color: #4ade80; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); }
+  .tier-0 .tier-item {
+    border-color: rgba(74,222,128,0.25);
+    background: rgba(74,222,128,0.04);
+    box-shadow: 0 0 20px rgba(74,222,128,0.08), inset 0 0 20px rgba(74,222,128,0.03);
+  }
+  .tier-0 .item-name { color: #86efac; }
+  .tier-0 .item-detail { color: rgba(134,239,172,0.6); }
+
+  /* Tier 1 - Yellow */
+  .tier-1 .tier-label { color: #facc15; }
+  .tier-1 .tier-status { color: #facc15; background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.2); }
+  .tier-1 .tier-item {
+    border-color: rgba(250,204,21,0.2);
+    background: rgba(250,204,21,0.03);
+    box-shadow: 0 0 20px rgba(250,204,21,0.06), inset 0 0 20px rgba(250,204,21,0.02);
+  }
+  .tier-1 .item-name { color: #fde68a; }
+  .tier-1 .item-detail { color: rgba(253,230,138,0.55); }
+
+  /* Tier 2 - Red (barrier) */
+  .tier-2 .tier-label { color: #f87171; }
+  .tier-2 .tier-status { color: #f87171; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); }
+  .tier-2 .tier-item {
+    border-color: rgba(248,113,113,0.3);
+    background: rgba(248,113,113,0.05);
+    box-shadow: 0 0 30px rgba(248,113,113,0.12), inset 0 0 20px rgba(248,113,113,0.04);
+  }
+  .tier-2 .item-name { color: #fca5a5; }
+  .tier-2 .item-detail { color: rgba(252,165,165,0.6); }
+
+  .barrier-warning {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    font-style: italic;
+    color: rgba(248,113,113,0.7);
+    margin-top: 12px;
+    opacity: 0;
+    transition: opacity 1s ease 0.5s;
+  }
+  .tier-2.visible .barrier-warning { opacity: 1; }
+
+  /* Barrier line */
+  .barrier-line {
+    position: absolute;
+    left: 260px;
+    right: 260px;
+    height: 2px;
+    background: rgba(248,113,113,0.0);
+    z-index: 6;
+    opacity: 0;
+    transition: opacity 1s ease;
+    overflow: visible;
+  }
+  .barrier-line.visible {
+    opacity: 1;
+    background: rgba(248,113,113,0.15);
+  }
+  .barrier-line::before {
+    content: '';
+    position: absolute;
+    inset: -8px 0;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(248,113,113,0.06) 20%,
+      rgba(248,113,113,0.1) 50%,
+      rgba(248,113,113,0.06) 80%,
+      transparent
+    );
+    filter: blur(6px);
+    animation: barrierPulse 3s ease-in-out infinite;
+  }
+  @keyframes barrierPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  .barrier-line::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 120px;
+    height: 4px;
+    background: linear-gradient(90deg, rgba(248,113,113,0.7), transparent);
+    border-radius: 2px;
+    animation: barrierScan 4s linear infinite;
+  }
+  @keyframes barrierScan {
+    0% { left: -120px; }
+    100% { left: 100%; }
+  }
+
+  /* Tier 3 - Gray/dim */
+  .tier-3 .tier-label { color: rgba(160,160,180,0.5); }
+  .tier-3 .tier-status { color: rgba(160,160,180,0.45); background: rgba(160,160,180,0.04); border: 1px solid rgba(160,160,180,0.1); }
+  .tier-3 .tier-item {
+    border-color: rgba(160,160,180,0.1);
+    background: rgba(160,160,180,0.02);
+    box-shadow: 0 0 15px rgba(160,160,180,0.03);
+  }
+  .tier-3 .item-name { color: rgba(180,180,200,0.45); }
+  .tier-3 .item-detail { color: rgba(180,180,200,0.25); }
+
+  /* Tier 4-5 - Ghostly */
+  .tier-45 .tier-label { color: rgba(140,140,170,0.25); }
+  .tier-45 .tier-status { color: rgba(140,140,170,0.2); background: rgba(140,140,170,0.02); border: 1px solid rgba(140,140,170,0.06); }
+  .tier-45 .tier-item {
+    border-color: rgba(140,140,170,0.06);
+    background: rgba(140,140,170,0.01);
+  }
+  .tier-45 .item-name { color: rgba(160,160,190,0.22); }
+  .tier-45 .item-detail { color: rgba(160,160,190,0.12); }
+
+  /* Fade-out for loop */
+  .tree-container.fade-out, #title.fade-out {
+    opacity: 0 !important;
+    transition: opacity 2s ease !important;
+  }
+  .tree-container.fade-out .tier,
+  .tree-container.fade-out .tier-item {
+    opacity: 0 !important;
+    transition: opacity 2s ease !important;
+  }
+</style>
+</head>
+<body>
+
+<div id="title">THE NEURAL COMPUTER <span>TECH TREE</span></div>
+
+<canvas id="connections" width="1920" height="1080"></canvas>
+
+<div class="tree-container" id="treeContainer">
+
+  <!-- Tier 0 — bottom -->
+  <div class="tier tier-0" id="tier0" style="bottom: 60px; top: auto; width: 1200px;">
+    <div class="tier-label">Tier 0</div>
+    <div class="tier-status">[DEMONSTRATED]</div>
+    <div class="tier-items">
+      <div class="tier-item" data-tier="0" data-index="0">
+        <div class="item-name">Neural Game Engines</div>
+        <div class="item-detail">GameNGen, Oasis, DIAMOND</div>
+      </div>
+      <div class="tier-item" data-tier="0" data-index="1">
+        <div class="item-name">Action-Conditioned Video</div>
+        <div class="item-detail">Matrix-Game-2/3, Genie 3</div>
+      </div>
+      <div class="tier-item" data-tier="0" data-index="2">
+        <div class="item-name">OS Simulation</div>
+        <div class="item-detail">NeuralOS (1.8 FPS)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 1 -->
+  <div class="tier tier-1" id="tier1" style="bottom: 280px; top: auto; width: 900px;">
+    <div class="tier-label">Tier 1</div>
+    <div class="tier-status">[PARTIALLY DEMONSTRATED]</div>
+    <div class="tier-items">
+      <div class="tier-item" data-tier="1" data-index="0">
+        <div class="item-name">720p Real-Time</div>
+        <div class="item-detail">Visual fidelity, 25+ FPS</div>
+      </div>
+      <div class="tier-item" data-tier="1" data-index="1">
+        <div class="item-name">Minutes-Long Consistency</div>
+        <div class="item-detail">Sustained coherent simulation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barrier line sits between Tier 2 and Tier 3 -->
+  <div class="barrier-line" id="barrierLine" style="top: 418px;"></div>
+
+  <!-- Tier 2 — THE HARD BARRIER -->
+  <div class="tier tier-2" id="tier2" style="bottom: 480px; top: auto; width: 800px;">
+    <div class="tier-label">Tier 2</div>
+    <div class="tier-status">[THE HARD BARRIER]</div>
+    <div class="tier-items">
+      <div class="tier-item" data-tier="2" data-index="0">
+        <div class="item-name">Computational Correctness</div>
+        <div class="item-detail">2+2=4 reliably</div>
+      </div>
+    </div>
+    <div class="barrier-warning">"Current architectures may be the wrong bet"</div>
+  </div>
+
+  <!-- Tier 3 -->
+  <div class="tier tier-3" id="tier3" style="bottom: 680px; top: auto; width: 800px;">
+    <div class="tier-label">Tier 3</div>
+    <div class="tier-status">[THEORIZED]</div>
+    <div class="tier-items">
+      <div class="tier-item" data-tier="3" data-index="0">
+        <div class="item-name">Programmability</div>
+        <div class="item-detail">Installable capabilities, Turing completeness</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 4-5 -->
+  <div class="tier tier-45" id="tier45" style="bottom: 860px; top: auto; width: 1000px;">
+    <div class="tier-label">Tiers 4-5</div>
+    <div class="tier-status">[SPECULATIVE]</div>
+    <div class="tier-items">
+      <div class="tier-item" data-tier="4" data-index="0">
+        <div class="item-name">Differentiable Computation</div>
+        <div class="item-detail">End-to-end learnable programs</div>
+      </div>
+      <div class="tier-item" data-tier="4" data-index="1">
+        <div class="item-name">Programming by Demonstration</div>
+        <div class="item-detail">Show, don't code</div>
+      </div>
+      <div class="tier-item" data-tier="4" data-index="2">
+        <div class="item-name">NC-Native Applications</div>
+        <div class="item-detail">Born-neural software</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Canvas setup for connection lines and particles ──
+const canvas = document.getElementById('connections');
+const ctx = canvas.getContext('2d');
+
+// Tier vertical centers (measured from bottom of viewport)
+// These correspond to the center Y of each tier's items
+const tierCenters = {
+  0: 1080 - 100,
+  1: 1080 - 310,
+  2: 1080 - 520,
+  3: 1080 - 710,
+  4: 1080 - 890
+};
+
+const connections = [
+  { from: 0, to: 1, color: [74, 222, 128], active: false, progress: 0 },
+  { from: 1, to: 2, color: [250, 204, 21], active: false, progress: 0 },
+  { from: 2, to: 3, color: [248, 113, 113], active: false, progress: 0 },
+  { from: 3, to: 4, color: [160, 160, 180], active: false, progress: 0 }
+];
+
+const particles = [];
+
+function spawnParticle(conn) {
+  const fromY = tierCenters[conn.from];
+  const toY = tierCenters[conn.to];
+  const [r, g, b] = conn.color;
+  // Dim factor for upper tiers
+  let alpha = conn.to >= 3 ? 0.15 : conn.to >= 2 ? 0.3 : 0.5;
+  particles.push({
+    x: 960 + (Math.random() - 0.5) * 40,
+    y: fromY,
+    targetY: toY,
+    speed: 0.8 + Math.random() * 0.6,
+    r, g, b,
+    alpha: alpha,
+    size: 1.5 + Math.random() * 1.5,
+    life: 1
+  });
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.y -= p.speed;
+    if (p.y <= p.targetY) {
+      p.life -= 0.04;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+    }
+    p.x += (Math.random() - 0.5) * 0.4;
+  }
+}
+
+function drawConnections(time) {
+  ctx.clearRect(0, 0, 1920, 1080);
+
+  // Draw connection lines
+  connections.forEach(conn => {
+    if (!conn.active) return;
+    const fromY = tierCenters[conn.from];
+    const toY = tierCenters[conn.to];
+    const [r, g, b] = conn.color;
+    const currentToY = fromY + (toY - fromY) * Math.min(conn.progress, 1);
+
+    // Dim factor for beyond-barrier connections
+    let dimFactor = conn.to >= 3 ? 0.15 : conn.to >= 2 ? 0.25 : 0.4;
+
+    // Main line
+    const grad = ctx.createLinearGradient(960, fromY, 960, currentToY);
+    grad.addColorStop(0, `rgba(${r},${g},${b},${dimFactor})`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},${dimFactor * 0.3})`);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(960, fromY);
+    ctx.lineTo(960, currentToY);
+    ctx.stroke();
+
+    // Glow
+    ctx.strokeStyle = `rgba(${r},${g},${b},${dimFactor * 0.15})`;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(960, fromY);
+    ctx.lineTo(960, currentToY);
+    ctx.stroke();
+  });
+
+  // Draw particles
+  particles.forEach(p => {
+    const a = p.alpha * p.life;
+    ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${a})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glow
+    ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${a * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ── Animation timeline ──
+const LOOP_DURATION = 20000; // 20 seconds total
+let startTime = null;
+let loopCount = 0;
+
+function resetState() {
+  // Hide everything
+  document.getElementById('title').classList.remove('visible', 'fade-out');
+  document.querySelectorAll('.tier').forEach(t => t.classList.remove('visible'));
+  document.querySelectorAll('.tier-item').forEach(t => {
+    t.classList.remove('visible', 'pulse');
+  });
+  document.getElementById('barrierLine').classList.remove('visible');
+  document.getElementById('treeContainer').classList.remove('fade-out');
+  document.getElementById('treeContainer').style.opacity = '';
+
+  connections.forEach(c => { c.active = false; c.progress = 0; });
+  particles.length = 0;
+  ctx.clearRect(0, 0, 1920, 1080);
+}
+
+// Milestone triggers (time in ms from loop start)
+const milestones = [
+  // Title fade in
+  { t: 200, action: () => document.getElementById('title').classList.add('visible') },
+
+  // Tier 0 fade in
+  { t: 800, action: () => document.getElementById('tier0').classList.add('visible') },
+
+  // Tier 0 items one by one
+  { t: 1200, action: () => {
+    const el = document.querySelector('.tier-item[data-tier="0"][data-index="0"]');
+    el.classList.add('visible');
+    setTimeout(() => el.classList.add('pulse'), 50);
+  }},
+  { t: 1800, action: () => {
+    const el = document.querySelector('.tier-item[data-tier="0"][data-index="1"]');
+    el.classList.add('visible');
+    setTimeout(() => el.classList.add('pulse'), 50);
+  }},
+  { t: 2400, action: () => {
+    const el = document.querySelector('.tier-item[data-tier="0"][data-index="2"]');
+    el.classList.add('visible');
+    setTimeout(() => el.classList.add('pulse'), 50);
+  }},
+
+  // Connection 0->1 starts
+  { t: 3200, action: () => { connections[0].active = true; } },
+
+  // Tier 1 fade in
+  { t: 4000, action: () => document.getElementById('tier1').classList.add('visible') },
+  { t: 4300, action: () => {
+    const el = document.querySelector('.tier-item[data-tier="1"][data-index="0"]');
+    el.classList.add('visible');
+    setTimeout(() => el.classList.add('pulse'), 50);
+  }},
+  { t: 4800, action: () => {
+    const el = document.querySelector('.tier-item[data-tier="1"][data-index="1"]');
+    el.classList.add('visible');
+    setTimeout(() => el.classList.add('pulse'), 50);
+  }},
+
+  // Connection 1->2 starts
+  { t: 5600, action: () => { connections[1].active = true; } },
+
+  // Tier 2 — dramatic pause, barrier
+  { t: 7000, action: () => document.getElementById('tier2').classList.add('visible') },
+  { t: 7400, action: () => {
+    const el = document.querySelector('.tier-item[data-tier="2"][data-index="0"]');
+    el.classList.add('visible');
+    setTimeout(() => el.classList.add('pulse'), 50);
+  }},
+  { t: 8200, action: () => document.getElementById('barrierLine').classList.add('visible') },
+
+  // Connection 2->3 starts (dim)
+  { t: 10000, action: () => { connections[2].active = true; } },
+
+  // Tier 3 behind barrier
+  { t: 11000, action: () => document.getElementById('tier3').classList.add('visible') },
+  { t: 11400, action: () => {
+    const el = document.querySelector('.tier-item[data-tier="3"][data-index="0"]');
+    el.classList.add('visible');
+  }},
+
+  // Connection 3->4 starts
+  { t: 12200, action: () => { connections[3].active = true; } },
+
+  // Tier 4-5 ghostly
+  { t: 13000, action: () => document.getElementById('tier45').classList.add('visible') },
+  { t: 13300, action: () => {
+    document.querySelector('.tier-item[data-tier="4"][data-index="0"]').classList.add('visible');
+  }},
+  { t: 13600, action: () => {
+    document.querySelector('.tier-item[data-tier="4"][data-index="1"]').classList.add('visible');
+  }},
+  { t: 13900, action: () => {
+    document.querySelector('.tier-item[data-tier="4"][data-index="2"]').classList.add('visible');
+  }},
+
+  // Fade out for loop
+  { t: 17500, action: () => {
+    document.getElementById('treeContainer').classList.add('fade-out');
+    document.getElementById('title').classList.add('fade-out');
+  }}
+];
+
+let triggeredMilestones = new Set();
+
+function animate(timestamp) {
+  if (startTime === null) startTime = timestamp;
+  const elapsed = timestamp - startTime;
+
+  // Check if we need to loop
+  if (elapsed >= LOOP_DURATION) {
+    startTime = timestamp;
+    triggeredMilestones.clear();
+    resetState();
+    requestAnimationFrame(animate);
+    return;
+  }
+
+  // Trigger milestones
+  milestones.forEach((m, i) => {
+    if (elapsed >= m.t && !triggeredMilestones.has(i)) {
+      triggeredMilestones.add(i);
+      m.action();
+    }
+  });
+
+  // Update connection progress
+  connections.forEach((conn, i) => {
+    if (conn.active && conn.progress < 1) {
+      conn.progress += 0.012;
+      if (conn.progress > 1) conn.progress = 1;
+    }
+    // Spawn particles for active connections
+    if (conn.active && conn.progress >= 0.3 && Math.random() < 0.06) {
+      spawnParticle(conn);
+    }
+  });
+
+  updateParticles();
+  drawConnections(elapsed);
+
+  requestAnimationFrame(animate);
+}
+
+// Start
+resetState();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+# Default aesthetic for content-pipeline outputs.
+#
+# This file ships with the pipeline and is tracked in git. It's the
+# aesthetic a brand-new user gets out of the box.
+#
+# To use YOUR OWN aesthetic instead: copy this file to
+# `aesthetic/<your-handle>.yaml`, edit it, and point `active_aesthetic`
+# in `config.yaml` at it. Personal aesthetic files are gitignored by
+# default so you don't accidentally push them.
+
+voice:
+  register: "conversational-analytical"
+  opening_style: >
+    Open with something concrete: a specific observation, a number, a
+    moment the reader can picture. Never open with a TL;DR or a thread
+    warning. The first paragraph should make the reader feel like they
+    walked into the middle of someone thinking.
+  confidence_style: >
+    Assertive core, honest edges. State what you believe clearly, then
+    mark exactly where your confidence runs out. No false modesty on
+    the things you know; no pretend certainty on the things you don't.
+  sentence_rhythm: >
+    Mix short declarative sentences with longer scaffolding ones. Vary
+    paragraph length. A 1-sentence paragraph is fine if it's load-bearing.
+
+  forbidden:
+    - "em dashes in prose (use commas, colons, periods, or restructure)"
+    - "'hot take' / 'hot take:' labels"
+    - "TL;DR boxes at the top of posts"
+    - "'it remains to be seen' without specifics"
+    - "listicle structure in the human layer"
+    - "generic AI-Twitter voice ('let that sink in', 'here's the thing', 'thread:')"
+    - "self-congratulatory openers ('this is wild' / 'this is huge')"
+
+  encouraged:
+    - "direct address to the reader"
+    - "concrete numbers over vague qualifiers"
+    - "'I think' before genuinely uncertain claims"
+    - "short declarative sentences mixed with longer scaffolding ones"
+    - "quoting a source's own phrase when it nails the point"
+
+format_specific:
+  blog:
+    structure: "dual-layer"
+    dual_layer: >
+      Every substantive claim has a collapsible <details> block under
+      it with (1) the source URL or arXiv id, (2) a quoted phrase from
+      the source that supports the claim, (3) brief reasoning. Readers
+      can skim the surface narrative or dive into any claim.
+    length_target_words: [1200, 2500]
+    ending_style: "forward-looking paragraph, no call-to-action, no engagement bait"
+
+  tweet-thread:
+    length_target_tweets: [6, 12]
+    opening: "one tweet that stands on its own, even for people who don't click through"
+    citations: "inline for claims that need anchoring; full sources live in the blog"
+    closing: "link to the blog post + one-line of the post's final takeaway"
+    pair_with_video: true   # if an explainer video was produced, embed it
+
+  explainer-video:
+    length_target_seconds: [60, 180]
+    style: "scrollytelling HTML. Self-contained single file. No external deps."
+    animation: "lightweight SVG/CSS transitions; no heavy libraries"
+    music: "no audio"
+    caption_track: "none (embed captions as text overlay when needed)"
+
+visual_identity:
+  primary_color: "#111111"
+  accent_color: "#0055ff"
+  font_family: "system-ui, -apple-system, sans-serif"
+  monospace_family: "ui-monospace, 'SF Mono', monospace"
+  theme: "light"

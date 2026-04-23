@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review Dashboard — Neural Computers Are Not Agents</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
+
+:root {
+  --bg-base: #0a0a0c;
+  --bg-raised: #111116;
+  --bg-surface: #18181e;
+  --bg-hover: #1f1f28;
+  --border: #2a2a35;
+  --border-active: #4a4a5a;
+  --text-primary: #e8e6e3;
+  --text-secondary: #8a8a95;
+  --text-muted: #55555f;
+  --accent: #c4956a;
+  --accent-dim: #8a6a4a;
+  --accent-glow: rgba(196, 149, 106, 0.08);
+  --green: #6abf7b;
+  --red: #bf6a6a;
+  --yellow: #bfb36a;
+  --blue: #6a9abf;
+  --confidence-high: #6abf7b;
+  --confidence-medium: #bfb36a;
+  --confidence-low: #bf6a6a;
+  --font-body: 'Newsreader', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
+  --radius: 3px;
+  --transition: 180ms ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  font-size: 15px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.7;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle grain overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* === LAYOUT === */
+.dashboard {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+/* === SIDEBAR === */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  padding: 32px 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  padding: 0 20px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.sidebar-header h1 {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.sidebar-header .title {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.sidebar-header .author {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  margin-top: 6px;
+}
+
+.nav-section {
+  padding: 8px 12px;
+}
+
+.nav-section-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 8px;
+  margin-bottom: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.nav-item .indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+
+.nav-item.active .indicator { background: var(--accent); }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-footer .stat {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.sidebar-footer .stat span { color: var(--text-secondary); }
+
+/* === MAIN CONTENT === */
+.main {
+  padding: 40px 60px 80px;
+  max-width: 900px;
+}
+
+.panel { display: none; animation: fadeIn 250ms ease; }
+.panel.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* === TYPOGRAPHY === */
+.panel h2 {
+  font-family: var(--font-body);
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.panel .subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.panel h3 {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 36px 0 14px;
+}
+
+.panel h3:first-of-type { margin-top: 0; }
+
+.panel p {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  font-size: 1.02rem;
+}
+
+.panel p em { color: var(--accent); font-style: italic; }
+.panel p strong { font-weight: 600; color: #fff; }
+
+.panel a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-dim);
+  transition: border-color var(--transition);
+}
+.panel a:hover { border-color: var(--accent); }
+
+.panel ul, .panel ol {
+  margin: 0 0 16px 20px;
+  color: var(--text-primary);
+}
+.panel li { margin-bottom: 6px; font-size: 1.02rem; }
+
+.panel blockquote {
+  border-left: 2px solid var(--accent-dim);
+  padding: 12px 20px;
+  margin: 20px 0;
+  background: var(--accent-glow);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.panel code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 2px;
+  color: var(--accent);
+}
+
+.panel pre {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 16px 0;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.panel pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+/* === TWEET CARDS === */
+.tweet-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin: 12px 0;
+  position: relative;
+  transition: border-color var(--transition);
+}
+.tweet-card:hover { border-color: var(--border-active); }
+
+.tweet-card .tweet-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tweet-card .tweet-label .num {
+  background: var(--accent-dim);
+  color: var(--bg-base);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+.tweet-card .tweet-body {
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  color: var(--text-primary);
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+.tweet-card .char-count {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+.tweet-card .char-count.over { color: var(--red); }
+
+/* === CONFIDENCE BADGES === */
+.confidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.confidence-badge.high { background: rgba(106, 191, 123, 0.1); color: var(--confidence-high); }
+.confidence-badge.medium { background: rgba(191, 179, 106, 0.1); color: var(--confidence-medium); }
+.confidence-badge.low { background: rgba(191, 106, 106, 0.1); color: var(--confidence-low); }
+
+/* === TABLES === */
+.panel table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.88rem;
+}
+.panel th {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.panel td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+.panel tr:last-child td { border-bottom: none; }
+.panel tr:hover td { background: var(--bg-hover); }
+
+/* === CHECKLIST === */
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.check-item:last-child { border-bottom: none; }
+
+.check-item input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-active);
+  border-radius: 2px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 3px;
+  transition: all var(--transition);
+}
+.check-item input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.check-item input[type="checkbox"]:checked::after {
+  content: '✓';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: var(--bg-base);
+  font-weight: 700;
+  width: 100%;
+  height: 100%;
+}
+
+.check-item .check-text {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.check-item .check-text strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* === SECTION DIVIDER === */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 32px 0;
+}
+
+/* === PULL QUOTE === */
+.pull-quote {
+  font-family: var(--font-body);
+  font-size: 1.4rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--accent);
+  padding: 24px 0;
+  margin: 24px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* === STATUS PILL === */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.status-pill.ready { background: rgba(106, 191, 123, 0.1); color: var(--green); }
+.status-pill.review { background: rgba(191, 179, 106, 0.1); color: var(--yellow); }
+.status-pill.draft { background: rgba(106, 154, 191, 0.1); color: var(--blue); }
+
+/* === NOTES TEXTAREA === */
+.notes-area {
+  width: 100%;
+  min-height: 120px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.notes-area:focus { border-color: var(--accent-dim); }
+.notes-area::placeholder { color: var(--text-muted); }
+
+/* === RESPONSIVE === */
+@media (max-width: 860px) {
+  .dashboard { grid-template-columns: 1fr; }
+  .sidebar {
+    position: relative;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 4px;
+  }
+  .sidebar-header { padding: 0 8px 12px; width: 100%; }
+  .nav-section { padding: 0 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .nav-section-label { display: none; }
+  .sidebar-footer { display: none; }
+  .main { padding: 24px 20px 60px; }
+}
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>Review Dashboard</h1>
+      <div class="title">Neural Computers Are Not Agents</div>
+      <div class="author">dmarz &mdash; 2026-04-12</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Content</div>
+      <div class="nav-item active" data-panel="blog"><span class="indicator"></span> Blog Post</div>
+      <div class="nav-item" data-panel="tweets"><span class="indicator"></span> Twitter Thread</div>
+      <div class="nav-item" data-panel="agent"><span class="indicator"></span> Agent Layer</div>
+    </div>
+
+    <div class="nav-section" style="margin-top: 12px;">
+      <div class="nav-section-label">Review</div>
+      <div class="nav-item" data-panel="audit"><span class="indicator"></span> Vulnerability Audit</div>
+      <div class="nav-item" data-panel="voice"><span class="indicator"></span> Voice Match</div>
+      <div class="nav-item" data-panel="checklist"><span class="indicator"></span> Pre-Flight</div>
+      <div class="nav-item" data-panel="notes"><span class="indicator"></span> Notes</div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="stat">Blog words: <span id="word-count-blog">—</span></div>
+      <div class="stat">Thread tweets: <span>8</span></div>
+      <div class="stat">Agent FAQ entries: <span>10</span></div>
+      <div class="stat">Files: <span>2</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ==================== BLOG POST ==================== -->
+    <div class="panel active" id="panel-blog">
+      <h2>Blog Post</h2>
+      <p class="subtitle">Human layer. Steered and curated by you. Every claim defensible, every sentence in your voice. The agent layer lives below — this is what gets judged by humans.</p>
+
+      <div class="pull-quote">"You can't take the gradient of bash."</div>
+
+      <h3>Opening + Agentic Declaration</h3>
+      <p>I keep returning to the same question about computation — what is the actual substrate, and could it be something else entirely? I've written about <a href="https://www.dmarz.xyz/blog/journey-of-a-packet">packet routing</a>, about <a href="https://www.dmarz.xyz/blog/biological-compilers">biological compilers</a>, about the physical layer beneath abstractions we take for granted. A paper landed this month that hits the same nerve from a direction I didn't expect: what if a neural network didn't <em>use</em> a computer, but <em>was</em> the computer?</p>
+
+      <p>This post was written agentically. An AI agent and I went through the paper, the codebase, the model lineage, and the adjacent research landscape together. I steered. It searched, synthesized, and structured. What you're reading now is the human layer — my voice, my lens, my judgment calls about what matters and what's hype. Below it is the agent layer — the raw research trace with confidence annotations, provenance chains, and explicit uncertainty markers.</p>
+
+      <h3>The Concept</h3>
+      <p>A Neural Computer is a neural network that <strong>is</strong> the computer. Not a model that controls one — a model that <em>replaces</em> one. You press a key, and the network generates the next frame of what a terminal would show. Not by running bash. Because it learned what bash <em>looks like when it runs</em>, from watching thousands of hours of terminal sessions. The forward pass is the clock tick. The latent state is memory, computation, and display, unified in a single representation. No OS. No kernel. No process scheduler. Just weights.</p>
+
+      <p>This is a different proposition than the agent paradigm, where we build increasingly powerful AI on top of conventional computers and the CPU still does the work. In the Neural Computer future, the computer itself becomes neural — and gains properties that silicon never had.</p>
+
+      <h3>Properties of the Substrate</h3>
+      <p>A neural substrate is differentiable. You can't take the gradient of bash — but you could, in principle, backpropagate through a Neural Computer to find what input produces a desired output. A neural substrate is interpolable — "halfway between two programs" is meaningless on a CPU but could be a navigable point in latent space on an NC. A neural substrate is trainable — you "program" it by showing it examples of the behavior you want, not by writing code. These aren't improvements on existing capabilities. They're categorically new operations that only exist because the computational substrate changed. None have been demonstrated yet — they're theoretical consequences of the architecture that become exploitable once the system actually works.</p>
+
+      <h3>What Actually Works (and What Doesn't)</h3>
+      <p><strong>It doesn't compute yet.</strong> The current prototype (<a href="https://arxiv.org/abs/2604.06425">arXiv 2604.06425</a>) can render a terminal that passes a quick glance — correct fonts, ANSI colors, cursor blinks, realistic timing. Simple commands like <code>pwd</code> and <code>date</code> produce plausible output. But ask it to add two-digit numbers and it falls apart. The lead author, Mingchen Zhuge, says this bluntly in an accompanying essay: "asking current DiT-based video models to carry stable reasoning may simply be the wrong bet." The gap between <em>looking</em> like a computer and <em>being</em> a computer is the entire research problem.</p>
+
+      <h3>The Tech Tree</h3>
+      <p>The tech tree has five tiers. We're at Tier 0: proof that the concept isn't vacuous. Tier 2 — computational correctness, where <code>2+2</code> reliably equals <code>4</code> — is the hard barrier that may require architectural innovation beyond current video diffusion models. Zhuge estimates ~3 years and models in the 10-1000 trillion parameter range. Everything interesting — differentiable computation, programming by demonstration, NC-native applications — lives on the other side of that barrier.</p>
+
+      <h3>On the Shape of This Post <span class="status-pill draft">new section</span></h3>
+      <p>This post has two layers. The human layer you've been reading is curated, opinionated, and accountable. The agent layer below is something different: a structured research trace with explicit confidence levels, source provenance, and a machine-readable data block. The agent doesn't perform certainty it doesn't have. Where it speculates, it says so.</p>
+
+      <p>The parallel to the NC concept: a Neural Computer trains on I/O traces — recordings of computers being used. This post is, in a sense, an I/O trace of a human-agent research session. The human section is the "rendered frame." The agent section is the "latent state." The form mirrors the content.</p>
+
+      <p>Working in Ethereum has shaped how I think about this. Every new substrate — whether it's a blockchain or a neural network — eventually needs coordination protocols: shared formats for how participants communicate, resolve disagreements, and update their understanding. The human/agent split in this post is a crude first attempt at that. The confidence annotations are a coordination mechanism. New substrates need new protocols. This is one embryo of one.</p>
+
+      <div class="divider"></div>
+      <p style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.72rem;">Word count: ~520 &middot; Reading time: ~2 min &middot; <span class="status-pill review">Needs final read</span></p>
+    </div>
+
+    <!-- ==================== TWITTER THREAD ==================== -->
+    <div class="panel" id="panel-tweets">
+      <h2>Twitter Thread</h2>
+      <p class="subtitle">8 tweets. Optimized for shareability and the Twitter → blog funnel. Each tweet rated for standalone RT-ability.</p>
+
+      <div class="tweet-card" id="t1">
+        <div class="tweet-label"><span class="num">1</span> Hook</div>
+        <div class="char-count"></div>
+        <div class="tweet-body">What if the AI didn't use the computer — what if the AI *was* the computer?
+
+Neural Computers: no CPU, no OS, no bash underneath. A video model that learned what computation looks like by watching thousands of hours of terminal sessions.
+
+The forward pass is the clock tick.</div>
+      </div>
+
+      <div class="tweet-card" id="t2">
+        <div class="tweet-label"><span class="num">2</span> The Distinction</div>
+        <div class="char-count"></div>
+        <div class="tweet-body">The distinction matters.
+
+Agent: LLM observes screen → decides what to click → sends action to a REAL computer that executes it
+
+Neural Computer: you press a key → the neural network generates the next frame of what the terminal would show
+
+One controls a computer. The other replaced it.</div>
+      </div>
+
+      <div class="tweet-card" id="t3">
+        <div class="tweet-label"><span class="num">3</span> What Works</div>
+        <div class="char-count"></div>
+        <div class="tweet-body">The prototype (arxiv 2604.06425) renders terminals that pass a quick glance — correct fonts, ANSI colors, cursor behavior.
+
+Simple commands work: pwd, date, whoami.
+
+Two-digit addition? Falls apart.
+
+The gap between LOOKING like a computer and BEING one is the entire research problem.</div>
+      </div>
+
+      <div class="tweet-card" id="t4">
+        <div class="tweet-label"><span class="num">4</span> Why It Matters — <span style="color: var(--green);">strongest tweet</span></div>
+        <div class="char-count"></div>
+        <div class="tweet-body">Why care if it barely computes?
+
+Because a neural substrate has properties silicon doesn't:
+- It's differentiable (you can't take the gradient of bash)
+- It's interpolable ("halfway between two programs" is a point in latent space)
+- It's trainable (show it behavior instead of writing code)
+
+These aren't improvements. They're new operations.</div>
+      </div>
+
+      <div class="tweet-card" id="t5">
+        <div class="tweet-label"><span class="num">5</span> The Hard Barrier</div>
+        <div class="char-count"></div>
+        <div class="tweet-body">The lead author is blunt: "asking current DiT-based video models to carry stable reasoning may simply be the wrong bet."
+
+The NC can fake a terminal. It can't do 2+2 reliably.
+
+Bridging that gap may need architectures that don't exist yet. Estimated: ~3 years, up to 1000T parameters.</div>
+      </div>
+
+      <div class="tweet-card" id="t6">
+        <div class="tweet-label"><span class="num">6</span> The Form — <span style="color: var(--accent);">the differentiator</span></div>
+        <div class="char-count"></div>
+        <div class="tweet-body">This post was written agentically. I steered, an agent researched.
+
+The post has two layers: a human layer (my voice, my judgment) and an agent layer (structured research trace with confidence annotations, provenance, uncertainty).
+
+New substrates need new coordination protocols. This is one embryo of one.</div>
+      </div>
+
+      <div class="tweet-card" id="t7">
+        <div class="tweet-label"><span class="num">7</span> The Parallel — <span style="color: var(--yellow);">quote-tweet bait</span></div>
+        <div class="char-count"></div>
+        <div class="tweet-body">The parallel isn't lost on me: Neural Computers train on I/O traces — recordings of computers being used.
+
+This blog post is an I/O trace of a human-agent research session. Human section = the rendered frame. Agent section = the latent state.
+
+The form mirrors the content.</div>
+      </div>
+
+      <div class="tweet-card" id="t8">
+        <div class="tweet-label"><span class="num">8</span> CTA</div>
+        <div class="char-count"></div>
+        <div class="tweet-body">Full post: human take on Neural Computers, structured agent context block underneath, and a five-tier tech tree from what's been demonstrated to what's speculative.
+
+Written for you and your agent: [LINK]</div>
+      </div>
+
+      <div class="divider"></div>
+      <p style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.72rem;">Tweets 6+7 are the differentiators — no other NC summary thread has this meta-angle. These will drive engagement and quote tweets.</p>
+    </div>
+
+    <!-- ==================== AGENT CONTEXT ==================== -->
+    <div class="panel" id="panel-agent">
+      <h2>Agent Layer — Research Trace</h2>
+      <p class="subtitle">The agent's output. Structured research trace with confidence annotations, provenance chains, structured YAML, and FAQ. The agent doesn't perform certainty it doesn't have. This is a different mode of expression than the human layer — probabilistic, annotated, transparent about uncertainty.</p>
+
+      <h3>Confidence Schema</h3>
+      <table>
+        <tr>
+          <th>Level</th><th>Meaning</th><th>When to use</th>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge high">HIGH</span></td>
+          <td>Paper direct quote or published result</td>
+          <td>Definition, architecture, demonstrated capabilities, explicit failures</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge medium">MEDIUM</span></td>
+          <td>Inference from codebase, model cards, or author estimates</td>
+          <td>Timeline projections, Tier 1 status, MG3 extrapolations</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge low">LOW</span></td>
+          <td>Speculation or logical extrapolation, not in paper</td>
+          <td>Tiers 2-5, parameter scale, paradigm implications</td>
+        </tr>
+      </table>
+
+      <h3>Disambiguation Notes</h3>
+      <p>5 critical disambiguation entries prevent agents from confusing:</p>
+      <ul>
+        <li><strong>NC (2026)</strong> vs <strong>DeepMind DNC (2016)</strong> — same words, completely different systems</li>
+        <li><strong>NC</strong> vs <strong>AI Agent</strong> — agent controls real CPU; NC replaces CPU</li>
+        <li><strong>NC</strong> vs <strong>World Model</strong> — paper explicitly rejects this framing</li>
+        <li><strong>NC</strong> vs <strong>Neural Turing Machine (2014)</strong> — different era, approach, scale</li>
+        <li><strong>CNC</strong> is aspirational target, NOT a synonym for the current prototype</li>
+      </ul>
+
+      <h3>Structured Data</h3>
+      <p>Includes a YAML block encoding: entity metadata, paper info, core claim, model lineage, capabilities demonstrated/not demonstrated, CNC conditions with status, timeline estimates with confidence, key finding, hard barrier description, and disambiguation entries.</p>
+
+      <h3>FAQ Coverage</h3>
+      <p>10 Q&A pairs, each with confidence annotation:</p>
+      <ol style="font-size: 0.88rem; color: var(--text-secondary);">
+        <li>Are NCs the same as AI agents? <span class="confidence-badge high">HIGH</span></li>
+        <li>Do NCs actually work? <span class="confidence-badge high">HIGH</span> / <span class="confidence-badge medium">MED</span></li>
+        <li>What architecture do NCs use? <span class="confidence-badge high">HIGH</span></li>
+        <li>Can I run an NC locally? <span class="confidence-badge high">HIGH</span></li>
+        <li>How is this different from world models? <span class="confidence-badge high">HIGH</span> / <span class="confidence-badge medium">MED</span></li>
+        <li>Related to DeepMind's DNC? <span class="confidence-badge high">HIGH</span></li>
+        <li>Most important empirical finding? <span class="confidence-badge high">HIGH</span></li>
+        <li>How large would a functional NC be? <span class="confidence-badge low">LOW</span></li>
+        <li>Relationship to Matrix-Game? <span class="confidence-badge high">HIGH</span></li>
+        <li>Could NCs replace conventional computers? <span class="confidence-badge low">LOW</span></li>
+      </ol>
+
+      <h3>Agent Instruction Block</h3>
+      <p>Includes directives for consuming agents:</p>
+      <ul>
+        <li>What to lead with when answering "What are Neural Computers?"</li>
+        <li>4 common misconceptions to actively correct</li>
+        <li>What to caveat (Tiers 2+ are speculative)</li>
+        <li>5 staleness checks (re-verify if after October 2026)</li>
+      </ul>
+
+      <div class="divider"></div>
+      <p style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.72rem;">Full agent context section: ~1,200 words of structured knowledge + YAML data block</p>
+    </div>
+
+    <!-- ==================== VULNERABILITY AUDIT ==================== -->
+    <div class="panel" id="panel-audit">
+      <h2>Vulnerability Audit</h2>
+      <p class="subtitle">Every human-readable claim checked for factual accuracy, overclaiming, tone, and misinterpretation risk. 7 issues found and fixed.</p>
+
+      <h3>Issues Fixed</h3>
+
+      <table>
+        <tr><th>Type</th><th>Issue</th><th>Fix</th></tr>
+        <tr>
+          <td><span class="confidence-badge low">FACTUAL</span></td>
+          <td>"The authors say" — quotes are from Zhuge's solo blog essay, not the 19-author paper</td>
+          <td>→ "The lead author, Mingchen Zhuge, says in an accompanying essay"</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge low">FACTUAL</span></td>
+          <td>"The authors estimate ~3 years" — personal estimate, not team consensus</td>
+          <td>→ "Zhuge estimates ~3 years"</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge medium">OVERCLAIM</span></td>
+          <td>"NCs are the general-purpose endgame" — too absolute</td>
+          <td>→ "NCs are the endgame of that trajectory — if the hard barrier falls"</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge medium">OVERCLAIM</span></td>
+          <td>Differentiable/interpolable stated as established fact</td>
+          <td>→ Added "in principle," "could," and "None have been demonstrated yet"</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge medium">TONE</span></td>
+          <td>"I spent a day with an AI agent" — flippant to academics</td>
+          <td>→ "I spent time with the paper, the lead author's essay..."</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge low">MISREAD</span></td>
+          <td>"<strong>it doesn't work yet</strong>" — dismissive if screenshotted alone</td>
+          <td>→ "<strong>it doesn't compute yet</strong>" — precise and plays on double meaning</td>
+        </tr>
+        <tr>
+          <td><span class="confidence-badge medium">TONE</span></td>
+          <td>"That's the kind of content the agentic age needs" — self-congratulatory</td>
+          <td>→ "That's a format I'm experimenting with for this blog"</td>
+        </tr>
+      </table>
+
+      <h3>Lines Flagged as Safe &amp; Strong</h3>
+      <blockquote>"Not a model that controls one — a model that <em>replaces</em> one."</blockquote>
+      <blockquote>"The gap between <em>looking</em> like a computer and <em>being</em> a computer is the entire research problem."</blockquote>
+      <blockquote>"These aren't improvements on existing capabilities. They're categorically new operations."</blockquote>
+    </div>
+
+    <!-- ==================== VOICE MATCH ==================== -->
+    <div class="panel" id="panel-voice">
+      <h2>Voice Match Analysis</h2>
+      <p class="subtitle">Compared against dmarz.xyz — "Plausible Pluralities" blog, @DistributedMarz on X. Flashbots. "Machines and markets." "Bounded observer."</p>
+
+      <h3>Voice Profile</h3>
+      <table>
+        <tr><th>Trait</th><th>dmarz</th><th>Draft match?</th></tr>
+        <tr>
+          <td>Register</td>
+          <td>Academic-conversational hybrid. Scholarly but never stuffy.</td>
+          <td><span style="color: var(--green);">Yes</span></td>
+        </tr>
+        <tr>
+          <td>Opening pattern</td>
+          <td>Always opens with personal wondering: "I've long held the suspicion..."</td>
+          <td><span style="color: var(--green);">Fixed</span> — added personal entry referencing prior posts</td>
+        </tr>
+        <tr>
+          <td>Confidence</td>
+          <td>Assertive core, honest edges. Bold where certain, explicit flags where not.</td>
+          <td><span style="color: var(--green);">Yes</span></td>
+        </tr>
+        <tr>
+          <td>Sentence style</td>
+          <td>Mixed long/short. Em dashes. Triadic structures.</td>
+          <td><span style="color: var(--green);">Yes</span></td>
+        </tr>
+        <tr>
+          <td>Self-presentation</td>
+          <td>"Bounded observer." Discovers and shares, doesn't claim authority.</td>
+          <td><span style="color: var(--green);">Yes</span></td>
+        </tr>
+        <tr>
+          <td>TL;DR boxes</td>
+          <td>Never uses them. Opens with personal hooks.</td>
+          <td><span style="color: var(--green);">Fixed</span> — removed TL;DR, added personal opening</td>
+        </tr>
+        <tr>
+          <td>"Hot take" labels</td>
+          <td>States opinions directly, doesn't label them.</td>
+          <td><span style="color: var(--green);">Fixed</span> — relabeled as "the substrate question"</td>
+        </tr>
+        <tr>
+          <td>Themes</td>
+          <td>Infrastructure beneath abstractions. Novel computational substrates. Robustness.</td>
+          <td><span style="color: var(--green);">Perfect fit</span> — NCs are exactly this</td>
+        </tr>
+      </table>
+
+      <h3>Thematic Continuity</h3>
+      <p>The blog post links back to two prior dmarz posts — <a href="https://www.dmarz.xyz/blog/journey-of-a-packet">Journey of a Packet</a> and <a href="https://www.dmarz.xyz/blog/biological-compilers">Biological Compilers</a> — framing this as part of an ongoing intellectual project about novel computational substrates. This signals coherent thinking, not one-off summarization.</p>
+    </div>
+
+    <!-- ==================== PRE-FLIGHT CHECKLIST ==================== -->
+    <div class="panel" id="panel-checklist">
+      <h2>Pre-Flight Checklist</h2>
+      <p class="subtitle">Everything to do before hitting publish.</p>
+
+      <h3>Content</h3>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Replace [LINK]</strong> in tweet 8 with actual blog URL</div></div>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Final read-through</strong> of human section out loud — does every sentence sound like you?</div></div>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Verify links</strong> — arXiv 2604.06425, metauto-ai/NeuralComputer repo, dmarz.xyz blog links</div></div>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Check quote accuracy</strong> — "asking current DiT-based video models to carry stable reasoning may simply be the wrong bet" against original source</div></div>
+
+      <h3>Visual</h3>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Embed a GIF</strong> from repo <code>assets/</code> — <code>cg01.gif</code> or <code>cc01.gif</code> (CLIGen demos) work as "real terminal vs Neural Computer"</div></div>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Pull-quote graphic</strong> of "You can't take the gradient of bash" for Twitter image — most screenshottable line</div></div>
+
+      <h3>Publishing</h3>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Post blog</strong> to dmarz.xyz (markdown format ready)</div></div>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Post tweet thread</strong> — 8 tweets, consider trimming to 6 by merging 5+6</div></div>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Time window</strong> — paper dropped April 7. Second-wave analysis window (thoughtful take > speed) is now. Publish today or tomorrow.</div></div>
+
+      <h3>Post-Publish</h3>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Monitor replies</strong> for factual corrections — the attribution (Zhuge essay vs paper) is the most likely challenge point</div></div>
+      <div class="check-item"><input type="checkbox"><div class="check-text"><strong>Engage with quote tweets</strong> on tweet 7 (the substrate question) — this is the designed engagement point</div></div>
+    </div>
+
+    <!-- ==================== NOTES ==================== -->
+    <div class="panel" id="panel-notes">
+      <h2>Your Notes</h2>
+      <p class="subtitle">Scratch pad. Saved to browser localStorage.</p>
+
+      <h3>General thoughts</h3>
+      <textarea class="notes-area" id="notes-general" placeholder="How does it feel? What needs work? What are you unsure about?"></textarea>
+
+      <h3>Tone concerns</h3>
+      <textarea class="notes-area" id="notes-tone" placeholder="Anything that feels off-voice or risky?"></textarea>
+
+      <h3>Before publishing</h3>
+      <textarea class="notes-area" id="notes-prepublish" placeholder="Last-minute changes, things to double-check..."></textarea>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Navigation
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('panel-' + item.dataset.panel).classList.add('active');
+  });
+});
+
+// Tweet character counts
+document.querySelectorAll('.tweet-card').forEach(card => {
+  const body = card.querySelector('.tweet-body');
+  const counter = card.querySelector('.char-count');
+  const len = body.textContent.trim().length;
+  counter.textContent = len + '/280';
+  if (len > 280) counter.classList.add('over');
+});
+
+// Word count
+const blogPanel = document.getElementById('panel-blog');
+const blogText = blogPanel.querySelectorAll('p:not(.subtitle)');
+let totalWords = 0;
+blogText.forEach(p => { totalWords += p.textContent.trim().split(/\s+/).length; });
+document.getElementById('word-count-blog').textContent = totalWords;
+
+// Notes persistence
+document.querySelectorAll('.notes-area').forEach(ta => {
+  const key = 'nc-review-' + ta.id;
+  ta.value = localStorage.getItem(key) || '';
+  ta.addEventListener('input', () => localStorage.setItem(key, ta.value));
+});
+
+// Checklist persistence
+document.querySelectorAll('.check-item input').forEach((cb, i) => {
+  const key = 'nc-check-' + i;
+  cb.checked = localStorage.getItem(key) === 'true';
+  cb.addEventListener('change', () => localStorage.setItem(key, cb.checked));
+});
+</script>
+
+</body>
+</html>

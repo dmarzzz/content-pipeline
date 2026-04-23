@@ -1,0 +1,22 @@
+# All runtime outputs. Blog drafts, tweet threads, explainer videos,
+# pipeline snapshots — none of it belongs in the repo.
+output/
+
+# Personal aesthetic overrides. `default.yaml` is the only tracked one;
+# everyone else (including you) gets their own and keeps it local.
+aesthetic/*
+!aesthetic/default.yaml
+!aesthetic/README.md
+
+# Local LM config, API keys, etc.
+.env
+.env.*
+
+# Python / tooling
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# OS
+.DS_Store

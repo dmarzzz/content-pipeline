@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Agent vs Neural Computer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0c;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    position: relative;
+  }
+
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1920px;
+    height: 1080px;
+  }
+
+  .overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1920px;
+    height: 1080px;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ── divider ── */
+  .divider {
+    position: absolute;
+    top: 500px; left: 160px;
+    width: 1600px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 20%, rgba(255,255,255,0.08) 80%, transparent);
+  }
+
+  /* ── section titles ── */
+  .section-title {
+    position: absolute;
+    left: 80px;
+    font-size: 13px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    opacity: 0;
+    animation: fadeInTitle 1.5s ease forwards;
+  }
+  .section-title.agent {
+    top: 80px;
+    color: rgba(180,185,195,0.7);
+    animation-delay: 0.3s;
+  }
+  .section-title.nc {
+    top: 560px;
+    color: rgba(218,165,32,0.7);
+    animation-delay: 0.6s;
+  }
+
+  /* ── taglines ── */
+  .tagline {
+    position: absolute;
+    font-size: 15px;
+    letter-spacing: 1px;
+    opacity: 0;
+    animation: fadeInTagline 2s ease forwards;
+  }
+  .tagline.agent {
+    top: 440px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(180,185,195,0.5);
+    animation-delay: 2s;
+  }
+  .tagline.nc {
+    top: 960px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(218,165,32,0.55);
+    animation-delay: 2.5s;
+  }
+
+  /* ── agent component boxes ── */
+  .agent-box {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeInBox 1s ease forwards;
+  }
+
+  .agent-box .icon-container {
+    width: 120px; height: 120px;
+    border: 1.5px solid rgba(180,185,195,0.25);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(180,185,195,0.03);
+    position: relative;
+  }
+
+  .agent-box .icon-container svg {
+    width: 52px; height: 52px;
+    fill: none;
+    stroke: rgba(180,185,195,0.6);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .agent-box .label {
+    margin-top: 14px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(180,185,195,0.45);
+  }
+
+  .agent-box.brain { top: 200px; left: 200px; animation-delay: 0.5s; }
+  .agent-box.cpu   { top: 200px; left: 860px; animation-delay: 0.8s; }
+  .agent-box.screen { top: 200px; left: 1520px; animation-delay: 1.1s; }
+
+  /* ── arrow labels (agent) ── */
+  .arrow-label {
+    position: absolute;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(180,185,195,0.3);
+    opacity: 0;
+    animation: fadeInTagline 1.5s ease forwards;
+  }
+  .arrow-label.send    { top: 232px; left: 520px; animation-delay: 1.5s; }
+  .arrow-label.exec    { top: 232px; left: 1190px; animation-delay: 1.7s; }
+  .arrow-label.observe { top: 370px; left: 850px; animation-delay: 1.9s; }
+
+  @keyframes fadeInTitle {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInBox {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes fadeInTagline {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c" width="1920" height="1080"></canvas>
+
+<div class="overlay">
+  <!-- Divider -->
+  <div class="divider"></div>
+
+  <!-- Section titles -->
+  <div class="section-title agent">Agent</div>
+  <div class="section-title nc">Neural Computer</div>
+
+  <!-- Taglines -->
+  <div class="tagline agent">The AI controls.&ensp;The CPU computes.</div>
+  <div class="tagline nc">The AI IS the computer.&ensp;The forward pass is the clock tick.</div>
+
+  <!-- Agent boxes -->
+  <div class="agent-box brain">
+    <div class="icon-container">
+      <!-- brain / AI icon -->
+      <svg viewBox="0 0 48 48">
+        <path d="M24 6c-5 0-9 3-10.5 7.5C9 14.5 6 18 6 22c0 4.5 3 8 7 9.5V38c0 2 1.5 4 4 4h2v-8h10v8h2c2.5 0 4-2 4-4v-6.5c4-1.5 7-5 7-9.5 0-4-3-7.5-7.5-8.5C33 9 29 6 24 6z"/>
+        <circle cx="18" cy="22" r="2.5" fill="rgba(180,185,195,0.4)" stroke="none"/>
+        <circle cx="30" cy="22" r="2.5" fill="rgba(180,185,195,0.4)" stroke="none"/>
+        <text x="24" y="26" text-anchor="middle" font-size="7" font-family="JetBrains Mono" fill="rgba(180,185,195,0.6)" stroke="none">AI</text>
+      </svg>
+    </div>
+    <div class="label">LLM Agent</div>
+  </div>
+
+  <div class="agent-box cpu">
+    <div class="icon-container">
+      <!-- CPU / chip icon -->
+      <svg viewBox="0 0 48 48">
+        <rect x="12" y="12" width="24" height="24" rx="2"/>
+        <rect x="17" y="17" width="14" height="14" rx="1" fill="rgba(180,185,195,0.08)"/>
+        <text x="24" y="28" text-anchor="middle" font-size="7" font-family="JetBrains Mono" fill="rgba(180,185,195,0.5)" stroke="none">CPU</text>
+        <!-- pins -->
+        <line x1="18" y1="8" x2="18" y2="12"/><line x1="24" y1="8" x2="24" y2="12"/><line x1="30" y1="8" x2="30" y2="12"/>
+        <line x1="18" y1="36" x2="18" y2="40"/><line x1="24" y1="36" x2="24" y2="40"/><line x1="30" y1="36" x2="30" y2="40"/>
+        <line x1="8" y1="18" x2="12" y2="18"/><line x1="8" y1="24" x2="12" y2="24"/><line x1="8" y1="30" x2="12" y2="30"/>
+        <line x1="36" y1="18" x2="40" y2="18"/><line x1="36" y1="24" x2="40" y2="24"/><line x1="36" y1="30" x2="40" y2="30"/>
+      </svg>
+    </div>
+    <div class="label">Real Computer</div>
+  </div>
+
+  <div class="agent-box screen">
+    <div class="icon-container">
+      <!-- screen icon -->
+      <svg viewBox="0 0 48 48">
+        <rect x="6" y="10" width="36" height="24" rx="2"/>
+        <line x1="18" y1="34" x2="18" y2="40"/><line x1="30" y1="34" x2="30" y2="40"/>
+        <line x1="14" y1="40" x2="34" y2="40"/>
+        <line x1="12" y1="18" x2="28" y2="18" stroke-opacity="0.4"/>
+        <line x1="12" y1="22" x2="24" y2="22" stroke-opacity="0.3"/>
+        <line x1="12" y1="26" x2="20" y2="26" stroke-opacity="0.2"/>
+      </svg>
+    </div>
+    <div class="label">Output</div>
+  </div>
+
+  <!-- Arrow labels -->
+  <div class="arrow-label send">Actions</div>
+  <div class="arrow-label exec">Execute</div>
+  <div class="arrow-label observe">Observe &amp; Decide</div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────────────────────
+// Canvas animation
+// ────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 1920, H = 1080;
+const LOOP = 15000; // 15-second loop in ms
+
+let startTime = null;
+
+// ── Easing helpers ──
+function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ── Agent arrow paths ──
+// Forward top: brain -> cpu -> screen
+const agentForwardPaths = [
+  // brain box right edge -> cpu box left edge
+  { x1: 320, y1: 260, x2: 860, y2: 260 },
+  // cpu box right edge -> screen box left edge
+  { x1: 980, y1: 260, x2: 1520, y2: 260 },
+];
+
+// Return bottom: screen -> brain (curved below)
+const agentReturnPath = {
+  // curved path underneath
+  points: (t) => {
+    const sx = 1520, sy = 330;
+    const ex = 320,  ey = 330;
+    const cx = 920,  cy = 400;
+    const u = 1 - t;
+    return {
+      x: u*u*sx + 2*u*t*cx + t*t*ex,
+      y: u*u*sy + 2*u*t*cy + t*t*ey,
+    };
+  }
+};
+
+// ── Particle system for agent arrows ──
+class AgentParticle {
+  constructor(pathType, pathIndex, delay, speed) {
+    this.pathType = pathType; // 'forward' or 'return'
+    this.pathIndex = pathIndex;
+    this.delay = delay;
+    this.speed = speed; // fraction per loop
+    this.progress = 0;
+  }
+  update(loopT) {
+    let t = (loopT - this.delay);
+    if (t < 0) t += 1;
+    this.progress = (t * this.speed) % 1;
+  }
+  getPos() {
+    const t = this.progress;
+    if (this.pathType === 'forward') {
+      const p = agentForwardPaths[this.pathIndex];
+      return { x: lerp(p.x1, p.x2, t), y: lerp(p.y1, p.y2, t) };
+    } else {
+      return agentReturnPath.points(t);
+    }
+  }
+}
+
+const agentParticles = [];
+// Forward particles
+for (let pi = 0; pi < 2; pi++) {
+  for (let i = 0; i < 5; i++) {
+    agentParticles.push(new AgentParticle('forward', pi, (pi * 0.15) + i * 0.06, 2.5));
+  }
+}
+// Return particles
+for (let i = 0; i < 6; i++) {
+  agentParticles.push(new AgentParticle('return', 0, 0.4 + i * 0.05, 2.0));
+}
+
+// ── Draw agent static arrows ──
+function drawAgentArrows(alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = 'rgba(180,185,195,0.15)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 6]);
+
+  // Forward arrows
+  agentForwardPaths.forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(p.x1, p.y1);
+    ctx.lineTo(p.x2, p.y2);
+    ctx.stroke();
+    // Arrowhead
+    drawArrowhead(p.x2, p.y2, 0, 'rgba(180,185,195,0.2)');
+  });
+
+  // Return curved arrow
+  ctx.beginPath();
+  for (let i = 0; i <= 60; i++) {
+    const pos = agentReturnPath.points(i / 60);
+    if (i === 0) ctx.moveTo(pos.x, pos.y);
+    else ctx.lineTo(pos.x, pos.y);
+  }
+  ctx.stroke();
+  const endPos = agentReturnPath.points(1);
+  drawArrowhead(endPos.x, endPos.y, Math.PI, 'rgba(180,185,195,0.2)');
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawArrowhead(x, y, angle, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-12, -5);
+  ctx.lineTo(-12, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── Draw agent particles ──
+function drawAgentParticles(loopT, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  agentParticles.forEach(p => {
+    p.update(loopT);
+    const pos = p.getPos();
+    const grad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 6);
+    grad.addColorStop(0, 'rgba(200,205,215,0.8)');
+    grad.addColorStop(0.5, 'rgba(200,205,215,0.2)');
+    grad.addColorStop(1, 'rgba(200,205,215,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    // bright core
+    ctx.fillStyle = 'rgba(220,225,235,0.9)';
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+// ────────────────────────────────────────────────────────────────
+// Neural Computer section
+// ────────────────────────────────────────────────────────────────
+
+// Mesh nodes in a flowing organic arrangement
+const ncCenterX = 960, ncCenterY = 760;
+const ncNodes = [];
+const ncEdges = [];
+
+// Generate organic mesh nodes
+function generateMesh() {
+  const cols = 14, rows = 5;
+  const spacingX = 90, spacingY = 55;
+  const startX = ncCenterX - (cols - 1) * spacingX / 2;
+  const startY = ncCenterY - (rows - 1) * spacingY / 2;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const jitterX = (Math.random() - 0.5) * 25;
+      const jitterY = (Math.random() - 0.5) * 18;
+      ncNodes.push({
+        x: startX + c * spacingX + jitterX,
+        y: startY + r * spacingY + jitterY,
+        baseX: startX + c * spacingX + jitterX,
+        baseY: startY + r * spacingY + jitterY,
+        col: c, row: r,
+        phase: Math.random() * Math.PI * 2,
+        ampX: 2 + Math.random() * 3,
+        ampY: 1.5 + Math.random() * 2.5,
+        freqX: 0.3 + Math.random() * 0.4,
+        freqY: 0.4 + Math.random() * 0.3,
+        activation: 0,
+      });
+    }
+  }
+
+  // Connect neighbors
+  for (let i = 0; i < ncNodes.length; i++) {
+    const n = ncNodes[i];
+    for (let j = i + 1; j < ncNodes.length; j++) {
+      const m = ncNodes[j];
+      const dr = Math.abs(n.row - m.row);
+      const dc = Math.abs(n.col - m.col);
+      if (dr <= 1 && dc <= 1 && (dr + dc > 0)) {
+        // skip some diagonals for organic feel
+        if (dr === 1 && dc === 1 && Math.random() > 0.5) continue;
+        ncEdges.push({ a: i, b: j });
+      }
+    }
+  }
+}
+generateMesh();
+
+// NC signal wave: flows left to right
+function getNCActivation(col, totalCols, loopT) {
+  // Wave moves left to right continuously
+  const wavePos = (loopT * 1.8) % 1.6 - 0.3; // overshoot edges for smooth loop
+  const nodePos = col / (totalCols - 1);
+  const dist = Math.abs(nodePos - wavePos);
+  const activation = Math.max(0, 1 - dist * 4);
+  return activation;
+}
+
+// Keystroke input visualization
+function drawKeystrokeInput(loopT, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // Keystroke indicator on the left
+  const wavePos = (loopT * 1.8) % 1.6 - 0.3;
+  const inputAlpha = clamp01(1 - wavePos * 5); // visible when wave is near left
+
+  // Keyboard key shape
+  const kx = 140, ky = ncCenterY;
+  const keyAlpha = inputAlpha * 0.7;
+
+  if (keyAlpha > 0.01) {
+    ctx.globalAlpha = alpha * keyAlpha;
+    ctx.strokeStyle = `rgba(218,165,32,${0.5 * keyAlpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    roundRect(ctx, kx - 18, ky - 18, 36, 36, 6);
+    ctx.stroke();
+
+    ctx.fillStyle = `rgba(218,165,32,${0.7 * keyAlpha})`;
+    ctx.font = '500 16px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('>', kx, ky);
+
+    // Arrow from key to mesh
+    ctx.strokeStyle = `rgba(218,165,32,${0.2 * keyAlpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(kx + 22, ky);
+    ctx.lineTo(ncCenterX - 600, ky);
+    ctx.stroke();
+  }
+
+  // Terminal output on the right
+  const outputAlpha = clamp01((wavePos - 0.7) * 3);
+  if (outputAlpha > 0.01) {
+    ctx.globalAlpha = alpha * outputAlpha;
+    const tx = 1780, ty = ncCenterY;
+    ctx.strokeStyle = `rgba(218,165,32,${0.4 * outputAlpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    roundRect(ctx, tx - 55, ty - 35, 110, 70, 6);
+    ctx.stroke();
+
+    ctx.fillStyle = `rgba(218,165,32,${0.5 * outputAlpha})`;
+    ctx.font = '400 9px "JetBrains Mono"';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const lines = ['$ output:', '  result_0', '  result_1', '  done.'];
+    lines.forEach((line, i) => {
+      const lineAlpha = clamp01((outputAlpha - i * 0.15) * 2);
+      ctx.globalAlpha = alpha * lineAlpha * outputAlpha;
+      ctx.fillText(line, tx - 45, ty - 25 + i * 14);
+    });
+
+    // Arrow from mesh to terminal
+    ctx.globalAlpha = alpha * outputAlpha;
+    ctx.strokeStyle = `rgba(218,165,32,${0.2 * outputAlpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(ncCenterX + 600, ncCenterY);
+    ctx.lineTo(tx - 58, ncCenterY);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+}
+
+function drawNCMesh(loopT, alpha, time) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const totalCols = 14;
+
+  // Update node positions (breathing)
+  ncNodes.forEach(n => {
+    n.x = n.baseX + Math.sin(time * n.freqX + n.phase) * n.ampX;
+    n.y = n.baseY + Math.cos(time * n.freqY + n.phase * 1.3) * n.ampY;
+    n.activation = getNCActivation(n.col, totalCols, loopT);
+  });
+
+  // Draw edges
+  ncEdges.forEach(e => {
+    const a = ncNodes[e.a];
+    const b = ncNodes[e.b];
+    const act = Math.max(a.activation, b.activation);
+    const baseAlpha = 0.06;
+    const actAlpha = act * 0.35;
+    const edgeAlpha = baseAlpha + actAlpha;
+
+    ctx.strokeStyle = act > 0.1
+      ? `rgba(218,165,32,${edgeAlpha})`
+      : `rgba(218,165,32,${baseAlpha})`;
+    ctx.lineWidth = act > 0.1 ? 1 + act * 1.5 : 0.5;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  });
+
+  // Draw nodes
+  ncNodes.forEach(n => {
+    const act = n.activation;
+    const radius = 2.5 + act * 4;
+
+    // Glow
+    if (act > 0.05) {
+      const glowRadius = radius + act * 18;
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowRadius);
+      grad.addColorStop(0, `rgba(218,165,32,${act * 0.5})`);
+      grad.addColorStop(0.4, `rgba(218,165,32,${act * 0.15})`);
+      grad.addColorStop(1, 'rgba(218,165,32,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, glowRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Core dot
+    const coreAlpha = 0.15 + act * 0.75;
+    ctx.fillStyle = act > 0.1
+      ? `rgba(235,190,60,${coreAlpha})`
+      : `rgba(218,165,32,${coreAlpha})`;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bright center
+    if (act > 0.2) {
+      ctx.fillStyle = `rgba(255,230,150,${act * 0.8})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  ctx.restore();
+}
+
+// ── NC signal particles flowing through mesh ──
+const ncSignalParticles = [];
+for (let i = 0; i < 12; i++) {
+  ncSignalParticles.push({
+    offset: i * 0.04,
+    rowOffset: (Math.random() - 0.5) * 100,
+    speed: 1.6 + Math.random() * 0.4,
+    size: 2 + Math.random() * 3,
+  });
+}
+
+function drawNCSignalParticles(loopT, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  ncSignalParticles.forEach(p => {
+    let t = ((loopT * p.speed) + p.offset) % 1.4 - 0.2;
+    if (t < 0 || t > 1) return;
+
+    const x = lerp(ncCenterX - 600, ncCenterX + 600, t);
+    const y = ncCenterY + p.rowOffset + Math.sin(t * Math.PI * 3 + p.offset * 20) * 20;
+
+    const edgeFade = Math.min(t * 5, (1 - t) * 5, 1);
+
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, p.size + 8);
+    grad.addColorStop(0, `rgba(255,220,100,${0.7 * edgeFade})`);
+    grad.addColorStop(0.4, `rgba(218,165,32,${0.25 * edgeFade})`);
+    grad.addColorStop(1, 'rgba(218,165,32,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, p.size + 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = `rgba(255,240,180,${0.9 * edgeFade})`;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+// ── Overall ambient glow for NC section ──
+function drawNCAmbiGlow(loopT, alpha) {
+  ctx.save();
+  const wavePos = (loopT * 1.8) % 1.6 - 0.3;
+  const glowX = lerp(ncCenterX - 600, ncCenterX + 600, clamp01(wavePos));
+
+  const grad = ctx.createRadialGradient(glowX, ncCenterY, 0, glowX, ncCenterY, 250);
+  grad.addColorStop(0, `rgba(218,165,32,${0.04 * alpha})`);
+  grad.addColorStop(0.5, `rgba(218,165,32,${0.015 * alpha})`);
+  grad.addColorStop(1, 'rgba(218,165,32,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(glowX, ncCenterY, 250, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ── Main header ──
+function drawTitle(alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.font = '600 11px "JetBrains Mono"';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.letterSpacing = '4px';
+  ctx.fillText('AGENT  vs  NEURAL COMPUTER', W / 2, 30);
+  ctx.restore();
+}
+
+// ── Subtle background grid for agent section ──
+function drawAgentGrid(alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.03;
+  ctx.strokeStyle = 'rgba(180,185,195,1)';
+  ctx.lineWidth = 0.5;
+  for (let x = 160; x <= 1760; x += 40) {
+    ctx.beginPath();
+    ctx.moveTo(x, 120);
+    ctx.lineTo(x, 460);
+    ctx.stroke();
+  }
+  for (let y = 120; y <= 460; y += 40) {
+    ctx.beginPath();
+    ctx.moveTo(160, y);
+    ctx.lineTo(1760, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ────────────────────────────────────────────────────────────────
+// Animation loop
+// ────────────────────────────────────────────────────────────────
+function frame(timestamp) {
+  if (!startTime) startTime = timestamp;
+  const elapsed = timestamp - startTime;
+  const loopT = (elapsed % LOOP) / LOOP; // 0..1 within loop
+  const time = elapsed / 1000; // seconds since start
+
+  // Intro fade (first 2 seconds)
+  const introAlpha = clamp01(elapsed / 2000);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0a0a0c';
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Agent section ──
+  drawAgentGrid(introAlpha);
+  drawAgentArrows(introAlpha);
+  drawAgentParticles(loopT, introAlpha);
+
+  // ── NC section ──
+  drawNCAmbiGlow(loopT, introAlpha);
+  drawNCMesh(loopT, introAlpha, time);
+  drawNCSignalParticles(loopT, introAlpha);
+  drawKeystrokeInput(loopT, introAlpha);
+
+  // Title
+  drawTitle(introAlpha);
+
+  requestAnimationFrame(frame);
+}
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

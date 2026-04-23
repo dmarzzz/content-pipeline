@@ -1,0 +1,78 @@
+<!doctype html>
+<!--
+  source: {{source_path}}
+  aesthetic: {{aesthetic_path}}
+  generated_by: content-pipeline/formats/explainer-video
+  panels: {{panel_count}}
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{title}}</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: {{primary_color}};
+      --accent: {{accent_color}};
+      --font: {{font_family}};
+      --mono: {{monospace_family}};
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--font); }
+    main { scroll-snap-type: y mandatory; overflow-y: scroll; height: 100vh; }
+    .panel {
+      height: 100vh;
+      scroll-snap-align: start;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 6vw;
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .6s ease, transform .6s ease;
+    }
+    .panel.in-view { opacity: 1; transform: translateY(0); }
+    .panel-inner { max-width: 44rem; width: 100%; }
+    .panel h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); margin: 0 0 1rem 0; }
+    .panel p { font-size: clamp(1.05rem, 1.4vw, 1.2rem); line-height: 1.5; margin: 0 0 1rem 0; }
+    .panel .viz { width: 100%; height: auto; margin: 1.5rem 0; }
+    .panel .accent { color: var(--accent); }
+    footer { text-align: center; padding: 2rem; opacity: 0.7; font-size: 0.85rem; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <!-- Panel 1: hook -->
+    <section class="panel">
+      <div class="panel-inner">
+        <h2>{{hook_headline}}</h2>
+        <p>{{hook_caption}}</p>
+        {{hook_svg}}
+      </div>
+    </section>
+
+    <!-- Repeat <section class="panel"> blocks for each arc beat -->
+    <!-- Each beat: <h2>, short <p>, inline SVG or CSS animation. -->
+
+    <!-- Takeaway panel (last) -->
+    <section class="panel">
+      <div class="panel-inner">
+        <h2>{{takeaway_headline}}</h2>
+        <p>{{takeaway_caption}}</p>
+        <p><a href="{{blog_url}}">read the full post</a></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) e.target.classList.add('in-view');
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('.panel').forEach((p) => obs.observe(p));
+  </script>
+</body>
+</html>

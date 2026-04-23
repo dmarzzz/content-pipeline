@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You Can't Take the Gradient of Bash</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;600&display=swap');
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --T: 16s; /* total loop duration */
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #08080a;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ────────── SCENE ────────── */
+.scene {
+  width: 1920px; height: 1080px;
+  position: relative; overflow: hidden;
+  background: #08080a;
+  margin: 0 auto;
+}
+
+/* Film-grain texture */
+.grain {
+  position: absolute; inset: 0; z-index: 200;
+  opacity: 0.025; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Subtle ambient glow on right half */
+.bg-glow {
+  position: absolute; right: 0; top: 0;
+  width: 55%; height: 100%;
+  background: radial-gradient(ellipse at 65% 45%, rgba(80,50,180,0.09) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ────────── DIVIDER + LABELS ────────── */
+.divider {
+  position: absolute; left: 50%; top: 7%; bottom: 16%;
+  width: 1px; z-index: 10;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.05) 20%, rgba(255,255,255,0.05) 80%, transparent);
+  animation: elemFade var(--T) ease infinite;
+}
+
+.lbl {
+  position: absolute; top: 36px; z-index: 10;
+  font-family: 'Inter', sans-serif; font-weight: 600;
+  font-size: 22px; letter-spacing: 5px;
+  text-transform: uppercase;
+  animation: elemFade var(--T) ease infinite;
+}
+.lbl-l { left: 25%; transform: translateX(-50%); color: rgba(255,255,255,0.45); }
+.lbl-r { left: 75%; transform: translateX(-50%); color: rgba(150,130,255,0.55); }
+
+.vs {
+  position: absolute; left: 50%; top: 43%;
+  transform: translate(-50%,-50%); z-index: 11;
+  font-family: 'Inter', sans-serif; font-weight: 600;
+  font-size: 13px; letter-spacing: 4px;
+  color: rgba(255,255,255,0.08);
+  animation: elemFade var(--T) ease infinite;
+}
+
+@keyframes elemFade {
+  0%      { opacity: 0; }
+  4%      { opacity: 1; }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+/* ══════════════════════════════════════
+   LEFT SIDE — CONVENTIONAL TERMINAL
+   ══════════════════════════════════════ */
+.term-wrap {
+  position: absolute; left: 4.5%; top: 11%;
+  width: 42%; height: 64%;
+}
+
+.term-win {
+  width: 100%; height: 100%;
+  background: #0b0b0d;
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px; overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.5),
+              inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+/* Title bar */
+.term-bar {
+  height: 36px; background: #151517;
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.035);
+}
+.td { width: 12px; height: 12px; border-radius: 50%; }
+.td-r { background: #ff5f57; }
+.td-y { background: #febc2e; }
+.td-g { background: #28c840; }
+.term-bar-title {
+  flex: 1; text-align: center; margin-right: 52px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px; color: rgba(255,255,255,0.25);
+}
+
+/* Body */
+.term-body {
+  padding: 22px 26px; position: relative;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px; line-height: 1.75; color: #33ff33;
+  height: calc(100% - 36px);
+}
+
+/* Typing line */
+.t-cmd {
+  white-space: pre; overflow: hidden; width: 0;
+  opacity: 0; height: 0;
+  animation: tType var(--T) steps(18,end) infinite;
+}
+.t-cmd .p { color: #666; }
+
+/* Blinking cursor */
+.t-cur {
+  display: inline-block; width: 8px; height: 15px;
+  background: #33ff33; vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: blink 0.55s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Output */
+.t-out {
+  color: #999; font-size: 12.5px; line-height: 1.65;
+  opacity: 0;
+  animation: tOut var(--T) ease infinite;
+}
+.t-out .hi { color: #33ff33; }
+.t-out .dim { color: #555; }
+.t-out .dir { color: #6a9fb5; }
+
+/* Scanlines */
+.scanlines {
+  position: absolute; inset: 0; border-radius: 10px;
+  pointer-events: none; z-index: 2;
+  background: repeating-linear-gradient(
+    to bottom, transparent, transparent 2px,
+    rgba(0,0,0,0.035) 2px, rgba(0,0,0,0.035) 4px);
+}
+
+/* ∂/∂x on left */
+.l-deriv {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 5;
+}
+.l-deriv-sym {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 110px; font-style: italic;
+  color: rgba(255,255,255,0.88);
+  text-shadow: 0 0 40px rgba(255,255,255,0.25);
+  opacity: 0;
+  animation: lDeriv var(--T) ease infinite;
+}
+
+/* Big red X + UNDEFINED */
+.l-fail {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none; z-index: 6;
+}
+.l-x {
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: 200px; line-height: 1;
+  color: #ff2244; opacity: 0;
+  text-shadow: 0 0 60px rgba(255,34,68,0.55), 0 0 120px rgba(255,34,68,0.25);
+  animation: lStamp var(--T) cubic-bezier(.2,0,.3,1) infinite;
+}
+.l-undef {
+  font-family: 'IBM Plex Mono', monospace; font-weight: 700;
+  font-size: 36px; letter-spacing: 10px;
+  color: #ff2244; opacity: 0; margin-top: -16px;
+  text-shadow: 0 0 28px rgba(255,34,68,0.45);
+  animation: lUndef var(--T) cubic-bezier(.2,0,.3,1) infinite;
+}
+
+/* Red flash overlay */
+.l-flash {
+  position: absolute; inset: 0; border-radius: 10px;
+  pointer-events: none; z-index: 4; opacity: 0;
+  background: rgba(255,34,68,0.06);
+  animation: lFlash var(--T) ease infinite;
+}
+
+/* LEFT-SIDE KEYFRAMES
+   Timeline (% of 16s):
+    0-3%   fade in
+    6%     typing starts
+    18%    typing done, output appears ~20%
+    37%    ∂/∂x appears
+    45%    X stamps down, flash
+    47%    UNDEFINED appears
+    90%    hold
+    97%    fade out
+*/
+@keyframes tType {
+  0%,5%   { width: 0; opacity: 0; height: 0; }
+  6%      { width: 0; opacity: 1; height: auto; }
+  18%     { width: 18ch; }
+  90%     { width: 18ch; opacity: 1; height: auto; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; width: 0; height: 0; }
+}
+
+@keyframes tOut {
+  0%,19%  { opacity: 0; }
+  22%     { opacity: 1; }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes lDeriv {
+  0%,35%  { opacity: 0; transform: scale(0.5); }
+  38%     { opacity: 1; transform: scale(1); }
+  40%     { transform: translateX(-5px) rotate(-1deg); }
+  41%     { transform: translateX(5px) rotate(1deg); }
+  42%     { transform: translateX(-3px); }
+  43%     { transform: translateX(0); }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes lStamp {
+  0%,44%  { opacity: 0; transform: scale(2.8); }
+  46%     { opacity: 1; transform: scale(1); }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes lUndef {
+  0%,47%  { opacity: 0; transform: scale(2); }
+  49%     { opacity: 1; transform: scale(1); }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes lFlash {
+  0%,44%  { opacity: 0; }
+  45%     { opacity: 0.35; }
+  50%     { opacity: 0.08; }
+  90%     { opacity: 0.08; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+
+/* ══════════════════════════════════════
+   RIGHT SIDE — NEURAL COMPUTER
+   ══════════════════════════════════════ */
+.neur-wrap {
+  position: absolute; right: 4.5%; top: 11%;
+  width: 42%; height: 64%;
+}
+
+.neur-win {
+  width: 100%; height: 100%;
+  border-radius: 10px; overflow: hidden;
+  position: relative; background: #0a0a10;
+  border: 1px solid rgba(120,100,255,0.08);
+  box-shadow: 0 0 0 1px rgba(80,60,180,0.08),
+              0 24px 64px rgba(50,25,110,0.18),
+              0 0 100px rgba(100,60,220,0.04);
+}
+
+/* Title bar */
+.neur-bar {
+  height: 36px;
+  background: linear-gradient(90deg, #12101c, #161422);
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 8px;
+  border-bottom: 1px solid rgba(120,100,255,0.05);
+}
+.nd { width: 12px; height: 12px; border-radius: 50%; }
+.nd-1 { background: #7c5cff; box-shadow: 0 0 6px rgba(124,92,255,0.35); }
+.nd-2 { background: #c084fc; box-shadow: 0 0 6px rgba(192,132,252,0.35); }
+.nd-3 { background: #f0abfc; box-shadow: 0 0 6px rgba(240,171,252,0.35); }
+.neur-bar-title {
+  flex: 1; text-align: center; margin-right: 52px;
+  font-family: 'Inter', sans-serif; font-weight: 300;
+  font-size: 11.5px; letter-spacing: 1px;
+  color: rgba(170,150,255,0.35);
+}
+
+/* Body */
+.neur-body {
+  position: relative;
+  height: calc(100% - 36px); overflow: hidden;
+}
+
+/* Background glow blobs */
+.n-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 35%, rgba(100,60,220,0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(200,120,255,0.09) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 85%, rgba(255,160,60,0.06) 0%, transparent 40%);
+  animation: nBgPulse 8s ease-in-out infinite;
+}
+@keyframes nBgPulse {
+  0%,100% { opacity: 0.5; }
+  50%     { opacity: 1; }
+}
+
+/* Gradient mesh blobs */
+.n-mesh {
+  position: absolute; inset: 0; z-index: 1;
+  opacity: 0;
+  animation: nMesh var(--T) ease infinite;
+}
+.blob {
+  position: absolute; border-radius: 50%;
+  filter: blur(55px);
+}
+.b1 { width: 280px; height: 280px; top: 8%;  left: 8%;  background: rgba(100,60,220,0.28); animation: bF1 7s ease-in-out infinite; }
+.b2 { width: 240px; height: 240px; top: 38%; right: 8%;  background: rgba(200,100,255,0.22); animation: bF2 6s ease-in-out infinite 1s; }
+.b3 { width: 200px; height: 200px; bottom: 8%; left: 28%; background: rgba(255,170,80,0.16); animation: bF3 8s ease-in-out infinite 0.5s; }
+.b4 { width: 160px; height: 160px; top: 18%; right: 28%; background: rgba(80,180,255,0.14); animation: bF1 5.5s ease-in-out infinite 2s; }
+
+@keyframes bF1 { 0%,100% { transform: translate(0,0) scale(1); }    50% { transform: translate(25px,-18px) scale(1.12); } }
+@keyframes bF2 { 0%,100% { transform: translate(0,0) scale(1); }    50% { transform: translate(-18px,25px) scale(1.15); } }
+@keyframes bF3 { 0%,100% { transform: translate(0,0) scale(1); }    50% { transform: translate(18px,18px) scale(1.08); } }
+
+/* Subtle grid */
+.n-grid {
+  position: absolute; inset: 0; z-index: 1; opacity: 0;
+  animation: nMesh var(--T) ease infinite;
+}
+.n-grid svg { width: 100%; height: 100%; }
+
+/* Neural text */
+.n-text {
+  position: absolute; top: 22px; left: 26px; right: 26px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px; line-height: 1.75; z-index: 2;
+}
+.n-cmd {
+  white-space: pre; overflow: hidden; width: 0;
+  opacity: 0; height: 0;
+  animation: nType var(--T) steps(18,end) infinite;
+}
+.n-cmd .np { color: rgba(170,150,255,0.45); }
+.n-cmd .nc { color: rgba(160,200,255,0.85); }
+.n-cur {
+  display: inline-block; width: 8px; height: 15px;
+  background: rgba(160,140,255,0.65); vertical-align: text-bottom;
+  margin-left: 1px; border-radius: 2px;
+  box-shadow: 0 0 8px rgba(160,140,255,0.35);
+  animation: nBlink 0.8s ease-in-out infinite;
+}
+@keyframes nBlink { 0%,100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+.n-out {
+  color: rgba(170,160,210,0.55); font-size: 12.5px; line-height: 1.65;
+  opacity: 0;
+  animation: nOut var(--T) ease infinite;
+}
+.n-out .nh { color: rgba(160,200,255,0.75); }
+.n-out .ndim { color: rgba(110,100,170,0.4); }
+.n-out .ndir { color: rgba(140,160,255,0.6); }
+
+/* Dissolve overlay */
+.n-dissolve {
+  position: absolute; inset: 0; z-index: 3;
+  pointer-events: none; opacity: 0;
+  background: linear-gradient(180deg,
+    rgba(10,10,16,0) 0%,
+    rgba(10,10,16,0.25) 12%,
+    rgba(18,14,36,0.6) 28%,
+    rgba(18,14,36,0.88) 48%,
+    rgba(10,10,16,0.65) 68%,
+    rgba(10,10,16,0.3) 85%,
+    rgba(10,10,16,0) 100%);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: nDissolve var(--T) ease infinite;
+}
+
+/* Ambient particles */
+.n-particles { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 0; animation: nArrows var(--T) ease infinite; }
+.ap {
+  position: absolute; border-radius: 50%; opacity: 0;
+}
+.ap:nth-child(1)  { width:3px; height:3px; background:#a78bfa; box-shadow:0 0 8px rgba(167,139,250,0.5); top:14%; left:18%;  animation: apF 5.5s ease-in-out infinite; }
+.ap:nth-child(2)  { width:2px; height:2px; background:#818cf8; box-shadow:0 0 6px rgba(129,140,248,0.5); top:28%; left:58%;  animation: apF 6.5s ease-in-out infinite 1s; }
+.ap:nth-child(3)  { width:4px; height:4px; background:#c084fc; box-shadow:0 0 10px rgba(192,132,252,0.4); top:52%; left:32%; animation: apF 4.8s ease-in-out infinite 2s; }
+.ap:nth-child(4)  { width:2px; height:2px; background:#f0abfc; box-shadow:0 0 6px rgba(240,171,252,0.4); top:68%; left:72%;  animation: apF 7.2s ease-in-out infinite 0.5s; }
+.ap:nth-child(5)  { width:3px; height:3px; background:#60a5fa; box-shadow:0 0 8px rgba(96,165,250,0.4);  top:82%; left:42%;  animation: apF 6s ease-in-out infinite 1.5s; }
+.ap:nth-child(6)  { width:2px; height:2px; background:#fbbf24; box-shadow:0 0 6px rgba(251,191,36,0.4);  top:22%; left:78%;  animation: apF 7s ease-in-out infinite 3s; }
+.ap:nth-child(7)  { width:3px; height:3px; background:#a78bfa; box-shadow:0 0 8px rgba(167,139,250,0.3); top:42%; left:12%;  animation: apF 5s ease-in-out infinite 2.5s; }
+.ap:nth-child(8)  { width:2px; height:2px; background:#f9a8d4; box-shadow:0 0 6px rgba(249,168,212,0.4); top:58%; left:52%;  animation: apF 5.8s ease-in-out infinite 1.2s; }
+.ap:nth-child(9)  { width:3px; height:3px; background:#34d399; box-shadow:0 0 8px rgba(52,211,153,0.4);  top:35%; left:88%;  animation: apF 6.2s ease-in-out infinite 0.8s; }
+.ap:nth-child(10) { width:2px; height:2px; background:#818cf8; box-shadow:0 0 6px rgba(129,140,248,0.3); top:75%; left:25%;  animation: apF 7.5s ease-in-out infinite 1.8s; }
+
+@keyframes apF {
+  0%,100% { opacity: 0; transform: translate(0,0); }
+  15%     { opacity: 0.65; }
+  50%     { transform: translate(12px,-22px); opacity: 0.45; }
+  85%     { opacity: 0.65; }
+}
+
+/* Gradient flow SVG arrows */
+.n-flow {
+  position: absolute; inset: 0; z-index: 8;
+  pointer-events: none; opacity: 0;
+  animation: nArrows var(--T) ease infinite;
+}
+.n-flow svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fp {
+  fill: none; stroke-width: 2; stroke-linecap: round; opacity: 0.55;
+}
+.fp1 { stroke: url(#fg1); stroke-dasharray: 80 200; stroke-dashoffset: 280; animation: fDash 3.8s linear infinite; }
+.fp2 { stroke: url(#fg2); stroke-dasharray: 60 180; stroke-dashoffset: 240; animation: fDash 4.5s linear infinite 0.5s; }
+.fp3 { stroke: url(#fg3); stroke-dasharray: 70 160; stroke-dashoffset: 230; animation: fDash 4s linear infinite 1s; }
+.fp4 { stroke: url(#fg1); stroke-dasharray: 50 190; stroke-dashoffset: 240; animation: fDash 5s linear infinite 1.5s; }
+.fp5 { stroke: url(#fg2); stroke-dasharray: 65 170; stroke-dashoffset: 235; animation: fDash 3.5s linear infinite 0.8s; }
+.fp6 { stroke: url(#fg3); stroke-dasharray: 55 185; stroke-dashoffset: 240; animation: fDash 4.8s linear infinite 2s; }
+
+@keyframes fDash { to { stroke-dashoffset: 0; } }
+
+/* Flowing particles (absolute positioned dots) */
+.fdot {
+  position: absolute; width: 5px; height: 5px;
+  border-radius: 50%; opacity: 0;
+}
+.fd1 { background:#a78bfa; box-shadow:0 0 10px rgba(167,139,250,0.6); top:18%; animation: fdM1 3.2s ease-in-out infinite; }
+.fd2 { background:#818cf8; box-shadow:0 0 10px rgba(129,140,248,0.6); top:38%; animation: fdM2 3.8s ease-in-out infinite 0.4s; }
+.fd3 { background:#c084fc; box-shadow:0 0 10px rgba(192,132,252,0.6); top:58%; animation: fdM3 3.5s ease-in-out infinite 0.8s; }
+.fd4 { background:#60a5fa; box-shadow:0 0 10px rgba(96,165,250,0.6);  top:30%; animation: fdM1 4s ease-in-out infinite 1.2s; }
+.fd5 { background:#f9a8d4; box-shadow:0 0 10px rgba(249,168,212,0.6); top:72%; animation: fdM2 3.4s ease-in-out infinite 0.6s; }
+.fd6 { background:#34d399; box-shadow:0 0 10px rgba(52,211,153,0.6);  top:48%; animation: fdM3 4.2s ease-in-out infinite 1.6s; }
+
+@keyframes fdM1 { 0% { left:4%; opacity:0; } 8% { opacity:0.75; } 85% { opacity:0.75; } 100% { left:92%; opacity:0; transform:translateY(-28px); } }
+@keyframes fdM2 { 0% { left:8%; opacity:0; } 8% { opacity:0.65; } 85% { opacity:0.65; } 100% { left:88%; opacity:0; transform:translateY(22px); } }
+@keyframes fdM3 { 0% { left:12%; opacity:0; } 8% { opacity:0.6; } 85% { opacity:0.6; } 100% { left:90%; opacity:0; transform:translateY(-18px); } }
+
+/* Pulse rings behind derivative */
+.n-pulse {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 9;
+  opacity: 0;
+  animation: nDeriv var(--T) ease infinite;
+}
+.pr {
+  width: 140px; height: 140px; border-radius: 50%;
+  border: 1px solid rgba(160,140,255,0.18);
+  position: absolute;
+  animation: prExp 2.2s ease-out infinite;
+}
+.pr:nth-child(2) { animation-delay: 0.7s; }
+.pr:nth-child(3) { animation-delay: 1.4s; }
+@keyframes prExp { 0% { transform: scale(0.8); opacity: 0.55; } 100% { transform: scale(2.4); opacity: 0; } }
+
+/* ∂/∂x on right (glowing, works!) */
+.r-deriv {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 10;
+}
+.r-deriv-sym {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 110px; font-style: italic;
+  opacity: 0; position: relative;
+  animation: nDeriv var(--T) ease infinite;
+}
+.r-deriv-sym .dt {
+  position: relative; z-index: 2;
+  background: linear-gradient(135deg, #c084fc, #818cf8, #60a5fa, #f0abfc, #c084fc);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradShift 3s ease-in-out infinite;
+}
+.r-deriv-sym::after {
+  content: '∂/∂x';
+  position: absolute; inset: 0;
+  font-family: inherit; font-size: inherit; font-style: inherit;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(140,110,255,0.35);
+  filter: blur(18px); z-index: 1;
+}
+@keyframes gradShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+/* Differentiable badge */
+.r-check {
+  position: absolute; bottom: 16%; left: 50%;
+  transform: translateX(-50%); z-index: 11;
+  pointer-events: none; opacity: 0;
+  animation: nCheck var(--T) ease infinite;
+}
+.r-check-txt {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600; font-size: 32px; letter-spacing: 7px;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #34d399, #60a5fa, #a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.r-check-glow {
+  position: absolute; inset: -24px;
+  background: radial-gradient(ellipse, rgba(80,200,150,0.12) 0%, transparent 70%);
+  filter: blur(8px); z-index: -1;
+}
+
+/* RIGHT-SIDE KEYFRAMES
+   Timeline (% of 16s):
+    Same typing start as left.
+    28%  dissolve begins, mesh appears
+    53%  ∂/∂x appears (glowing)
+    56%  arrows + flow begin
+    60%  "DIFFERENTIABLE" badge
+    90%  hold
+    97%  fade out
+*/
+@keyframes nType {
+  0%,5%   { width: 0; opacity: 0; height: 0; }
+  6%      { width: 0; opacity: 1; height: auto; }
+  18%     { width: 18ch; }
+  90%     { width: 18ch; opacity: 1; height: auto; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; width: 0; height: 0; }
+}
+
+@keyframes nOut {
+  0%,19%  { opacity: 0; }
+  22%     { opacity: 1; }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes nMesh {
+  0%,26%  { opacity: 0; }
+  34%     { opacity: 1; }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes nDissolve {
+  0%,26%  { opacity: 0; }
+  34%     { opacity: 1; }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes nDeriv {
+  0%,51%  { opacity: 0; transform: scale(0.7); filter: blur(8px); }
+  55%     { opacity: 1; transform: scale(1); filter: blur(0); }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes nArrows {
+  0%,54%  { opacity: 0; }
+  60%     { opacity: 1; }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes nCheck {
+  0%,58%  { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  63%     { opacity: 1; transform: translateX(-50%) translateY(0); }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+
+/* ══════════════════════════════════════
+   BOTTOM TEXT
+   ══════════════════════════════════════ */
+.bot {
+  position: absolute; bottom: 4.5%; left: 50%;
+  transform: translateX(-50%);
+  text-align: center; z-index: 20;
+}
+.bot-1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 44px; font-weight: 400;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: 0.5px; opacity: 0;
+  animation: bot1 var(--T) ease infinite;
+}
+.bot-1 em {
+  font-style: italic;
+  color: rgba(255,90,110,0.95);
+}
+.bot-2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 40px; font-weight: 400; font-style: italic;
+  margin-top: 8px; letter-spacing: 0.3px; opacity: 0;
+  background: linear-gradient(90deg, rgba(200,180,255,0.92), rgba(160,200,255,0.92));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: bot2 var(--T) ease infinite;
+}
+
+@keyframes bot1 {
+  0%,67%  { opacity: 0; transform: translateY(10px); }
+  73%     { opacity: 1; transform: translateY(0); }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+
+@keyframes bot2 {
+  0%,73%  { opacity: 0; transform: translateY(10px); }
+  79%     { opacity: 1; transform: translateY(0); }
+  90%     { opacity: 1; }
+  97%     { opacity: 0; }
+  100%    { opacity: 0; }
+}
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="grain"></div>
+  <div class="bg-glow"></div>
+
+  <div class="lbl lbl-l">Conventional Computing</div>
+  <div class="lbl lbl-r">Neural Computer</div>
+  <div class="divider"></div>
+  <div class="vs">VS</div>
+
+  <!-- ═══ LEFT: TERMINAL ═══ -->
+  <div class="term-wrap">
+    <div class="term-win">
+      <div class="term-bar">
+        <div class="td td-r"></div>
+        <div class="td td-y"></div>
+        <div class="td td-g"></div>
+        <div class="term-bar-title">bash &mdash; 80&times;24</div>
+      </div>
+      <div class="term-body">
+        <div class="t-cmd"><span class="p">$ </span>ls -la /usr/bin<span class="t-cur"></span></div>
+        <div class="t-out">
+total 483216
+drwxr-xr-x  1064 root  wheel    34048 Mar 12 09:41 <span class="dir">.</span>
+drwxr-xr-x     6 root  wheel      192 Jan  1  2024 <span class="dir">..</span>
+-rwxr-xr-x     1 root  wheel   167136 Mar 12 09:41 <span class="hi">awk</span>
+-rwxr-xr-x     1 root  wheel    36624 Mar 12 09:41 <span class="hi">base64</span>
+-rwxr-xr-x     1 root  wheel    36768 Mar 12 09:41 <span class="hi">basename</span>
+-rwxr-xr-x     1 root  wheel   154528 Mar 12 09:41 <span class="hi">bash</span>
+-rwxr-xr-x     1 root  wheel    36784 Mar 12 09:41 <span class="hi">cat</span>
+-rwxr-xr-x     1 root  wheel    37008 Mar 12 09:41 <span class="hi">chmod</span>
+-rwxr-xr-x     1 root  wheel    37008 Mar 12 09:41 <span class="hi">chown</span>
+-rwxr-xr-x     1 root  wheel    69904 Mar 12 09:41 <span class="hi">cp</span>
+-rwxr-xr-x     1 root  wheel    70368 Mar 12 09:41 <span class="hi">curl</span>
+<span class="dim">...</span>
+        </div>
+
+        <div class="l-deriv">
+          <div class="l-deriv-sym">∂/∂x</div>
+        </div>
+
+        <div class="l-fail">
+          <div class="l-x">&#10005;</div>
+          <div class="l-undef">UNDEFINED</div>
+        </div>
+
+        <div class="l-flash"></div>
+      </div>
+      <div class="scanlines"></div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT: NEURAL ═══ -->
+  <div class="neur-wrap">
+    <div class="neur-win">
+      <div class="neur-bar">
+        <div class="nd nd-1"></div>
+        <div class="nd nd-2"></div>
+        <div class="nd nd-3"></div>
+        <div class="neur-bar-title">neural computer</div>
+      </div>
+      <div class="neur-body">
+        <div class="n-bg"></div>
+
+        <div class="n-mesh">
+          <div class="blob b1"></div>
+          <div class="blob b2"></div>
+          <div class="blob b3"></div>
+          <div class="blob b4"></div>
+        </div>
+
+        <div class="n-grid">
+          <svg viewBox="0 0 800 600" preserveAspectRatio="none">
+            <line x1="0" y1="100" x2="800" y2="100" stroke="rgba(120,100,255,0.04)" stroke-width="1"/>
+            <line x1="0" y1="200" x2="800" y2="200" stroke="rgba(120,100,255,0.03)" stroke-width="1"/>
+            <line x1="0" y1="300" x2="800" y2="300" stroke="rgba(120,100,255,0.04)" stroke-width="1"/>
+            <line x1="0" y1="400" x2="800" y2="400" stroke="rgba(120,100,255,0.03)" stroke-width="1"/>
+            <line x1="0" y1="500" x2="800" y2="500" stroke="rgba(120,100,255,0.04)" stroke-width="1"/>
+            <line x1="160" y1="0" x2="160" y2="600" stroke="rgba(120,100,255,0.03)" stroke-width="1"/>
+            <line x1="320" y1="0" x2="320" y2="600" stroke="rgba(120,100,255,0.04)" stroke-width="1"/>
+            <line x1="480" y1="0" x2="480" y2="600" stroke="rgba(120,100,255,0.03)" stroke-width="1"/>
+            <line x1="640" y1="0" x2="640" y2="600" stroke="rgba(120,100,255,0.04)" stroke-width="1"/>
+          </svg>
+        </div>
+
+        <div class="n-text">
+          <div class="n-cmd"><span class="np">$ </span><span class="nc">ls -la /usr/bin</span><span class="n-cur"></span></div>
+          <div class="n-out">
+total 483216
+drwxr-xr-x  1064 root  wheel    34048 Mar 12 09:41 <span class="ndir">.</span>
+drwxr-xr-x     6 root  wheel      192 Jan  1  2024 <span class="ndir">..</span>
+-rwxr-xr-x     1 root  wheel   167136 Mar 12 09:41 <span class="nh">awk</span>
+-rwxr-xr-x     1 root  wheel    36624 Mar 12 09:41 <span class="nh">base64</span>
+-rwxr-xr-x     1 root  wheel    36768 Mar 12 09:41 <span class="nh">basename</span>
+-rwxr-xr-x     1 root  wheel   154528 Mar 12 09:41 <span class="nh">bash</span>
+-rwxr-xr-x     1 root  wheel    36784 Mar 12 09:41 <span class="nh">cat</span>
+-rwxr-xr-x     1 root  wheel    37008 Mar 12 09:41 <span class="nh">chmod</span>
+-rwxr-xr-x     1 root  wheel    37008 Mar 12 09:41 <span class="nh">chown</span>
+-rwxr-xr-x     1 root  wheel    69904 Mar 12 09:41 <span class="nh">cp</span>
+-rwxr-xr-x     1 root  wheel    70368 Mar 12 09:41 <span class="nh">curl</span>
+<span class="ndim">...</span>
+          </div>
+        </div>
+
+        <div class="n-dissolve"></div>
+
+        <div class="n-particles">
+          <div class="ap"></div><div class="ap"></div><div class="ap"></div>
+          <div class="ap"></div><div class="ap"></div><div class="ap"></div>
+          <div class="ap"></div><div class="ap"></div><div class="ap"></div>
+          <div class="ap"></div>
+        </div>
+
+        <div class="n-flow">
+          <svg viewBox="0 0 800 600" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="fg1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   style="stop-color:#7c5cff;stop-opacity:0"/>
+                <stop offset="50%"  style="stop-color:#a78bfa;stop-opacity:0.7"/>
+                <stop offset="100%" style="stop-color:#c084fc;stop-opacity:0"/>
+              </linearGradient>
+              <linearGradient id="fg2" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   style="stop-color:#818cf8;stop-opacity:0"/>
+                <stop offset="50%"  style="stop-color:#60a5fa;stop-opacity:0.6"/>
+                <stop offset="100%" style="stop-color:#34d399;stop-opacity:0"/>
+              </linearGradient>
+              <linearGradient id="fg3" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   style="stop-color:#c084fc;stop-opacity:0"/>
+                <stop offset="50%"  style="stop-color:#f0abfc;stop-opacity:0.5"/>
+                <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:0"/>
+              </linearGradient>
+            </defs>
+            <path class="fp fp1" d="M 40 100 C 180 60, 400 140, 580 80 S 740 110, 780 95"/>
+            <path class="fp fp2" d="M 30 220 C 160 260, 340 190, 500 240 S 670 210, 770 230"/>
+            <path class="fp fp3" d="M 50 340 C 200 300, 380 380, 540 320 S 700 360, 760 340"/>
+            <path class="fp fp4" d="M 35 160 C 140 195, 330 130, 490 175 S 680 150, 775 165"/>
+            <path class="fp fp5" d="M 45 440 C 190 400, 370 470, 540 420 S 710 450, 770 435"/>
+            <path class="fp fp6" d="M 55 520 C 200 490, 400 540, 580 500 S 720 530, 760 510"/>
+          </svg>
+          <div class="fdot fd1"></div>
+          <div class="fdot fd2"></div>
+          <div class="fdot fd3"></div>
+          <div class="fdot fd4"></div>
+          <div class="fdot fd5"></div>
+          <div class="fdot fd6"></div>
+        </div>
+
+        <div class="n-pulse">
+          <div class="pr"></div>
+          <div class="pr"></div>
+          <div class="pr"></div>
+        </div>
+
+        <div class="r-deriv">
+          <div class="r-deriv-sym">
+            <span class="dt">∂/∂x</span>
+          </div>
+        </div>
+
+        <div class="r-check">
+          <div class="r-check-glow"></div>
+          <div class="r-check-txt">&#10003; Differentiable</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BOTTOM ═══ -->
+  <div class="bot">
+    <div class="bot-1">You can't take the gradient of <em>bash</em>.</div>
+    <div class="bot-2">But what if the computer were a neural network?</div>
+  </div>
+</div>
+</body>
+</html>
