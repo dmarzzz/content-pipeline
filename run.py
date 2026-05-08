@@ -204,14 +204,21 @@ def main() -> int:
     ap.add_argument("--slug", default=None, help="URL-safe slug for this run (default: derived from source title)")
     ap.add_argument("--formats", default=None,
                     help="Comma-separated list of formats or 'all' (default: from config.yaml)")
+    ap.add_argument("--aesthetic", type=Path, default=None,
+                    help="Aesthetic YAML to use (default: aesthetic/default.yaml). "
+                         "Personal aesthetic files under aesthetic/<handle>.yaml are gitignored; "
+                         "this flag is the recommended way to point at one without editing config.yaml.")
     ap.add_argument("--output-root", type=Path, default=None)
     args = ap.parse_args()
 
     cfg = _load_config()
     output_root = args.output_root or PIPELINE_ROOT / cfg.get("output_root", "output")
-    active_aesthetic = PIPELINE_ROOT / cfg.get("active_aesthetic", "aesthetic/default.yaml")
+    if args.aesthetic:
+        active_aesthetic = args.aesthetic if args.aesthetic.is_absolute() else (Path.cwd() / args.aesthetic).resolve()
+    else:
+        active_aesthetic = PIPELINE_ROOT / cfg.get("active_aesthetic", "aesthetic/default.yaml")
     if not active_aesthetic.exists():
-        print(f"error: active_aesthetic not found at {active_aesthetic}", file=sys.stderr)
+        print(f"error: aesthetic file not found at {active_aesthetic}", file=sys.stderr)
         return 2
 
     # Resolve requested formats
