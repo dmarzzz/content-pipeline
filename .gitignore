@@ -18,5 +18,11 @@ __pycache__/
 .venv/
 .pytest_cache/
 
+# Node / one-off recording tooling (Playwright + scripts/ for MP4 capture)
+node_modules/
+scripts/
+package.json
+package-lock.json
+
 # OS
 .DS_Store
