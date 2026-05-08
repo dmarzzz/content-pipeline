@@ -63,14 +63,18 @@ Every run lands in `output/<YYYY-MM-DD>-<slug>/`:
 source.md                      canonical input used
 blog.md                        if blog format ran
 tweet-thread.md                if tweet-thread format ran
-explainer-video.html           if explainer-video format ran
+sketches.md                    if explainer-video format ran (sketch phase)
+no-go.md                       if a format declined to produce an artifact
+_decision.md                   user's chosen direction (created by user)
+explainer-video.html           if explainer-video format ran (build phase)
+build-skipped.md               if a build phase ran without prereqs
 _pipeline-snapshot/            frozen prompts + aesthetic + config
   config.yaml                  so this run is reproducible even if you
   aesthetic/<name>.yaml        edit the main pipeline tomorrow
   formats/
     blog/prompt.md
     tweet-thread/prompt.md
-    explainer-video/{prompt.md, template.html}
+    explainer-video/{sketch.md, prompt.md, template.html}
 NEXT.md                        agent-readable instructions:
                                exactly which prompt to execute with
                                which paths, in what order
@@ -86,16 +90,72 @@ Three today, pluggable:
   Surface narrative reads straight through; collapsible `<details>`
   blocks carry provenance for skeptical readers.
 - **tweet-thread** ([`formats/tweet-thread/`](./formats/tweet-thread/))
-  — 6-12 tweets. Tweet 1 stands alone. If an explainer video was
-  produced in the same run, the thread embeds it.
+  — 6–12 tweets. Tweet 1 stands alone. If an approved explainer video
+  was produced in the same run, the thread embeds it; otherwise it
+  doesn't (pair_with_video defaults to false in v2).
 - **explainer-video**
   ([`formats/explainer-video/`](./formats/explainer-video/)) — single
-  self-contained HTML file. Scrollytelling with SVG/CSS transitions.
-  No external libraries, no network fetches.
+  sustained composition (typographic, single-image, generative-system,
+  or data-driven). Self-contained HTML. **Sketch-then-build flow**:
+  the format produces 2–3 prose sketches first, the user picks one,
+  *then* the build phase generates the page. The format may also
+  return a `no-go.md` if the source doesn't warrant a video.
 
 Add a format by creating `formats/<name>/prompt.md` (and any template
 files it needs), then editing `config.yaml → default_formats` if you
-want it included in a default run.
+want it included in a default run. To opt the format into the
+sketch-then-build gate, drop a `sketch.md` next to `prompt.md` —
+`run.py` wires the two phases into `NEXT.md` automatically.
+
+## Sketch-then-build
+
+Some formats (currently `explainer-video`) produce a *sketch* before
+they produce an *artifact*. The flow:
+
+1. Run `formats/<format>/sketch.md`. It produces either `sketches.md`
+   (2–3 prose directions, ~150 words each, each naming a single
+   load-bearing visual claim and the things it deliberately omits)
+   or `no-go.md` (a recommendation to skip the format because the
+   source doesn't warrant it).
+2. **Stop.** Present the sketches (or no-go) to the user.
+3. The user records a choice in `_decision.md`:
+
+   ```yaml
+   ---
+   chosen: A | B | C | none
+   visual_claim: "<one sentence>"
+   form: typographic-first | single-image | generative-system | data-driven
+   notes: "<any user direction beyond the sketch>"
+   ---
+   ```
+
+4. Run `formats/<format>/prompt.md`. It verifies `_decision.md`
+   exists and refuses to run otherwise. If `chosen: none`, the
+   format produces nothing; the no-go reasoning is the final
+   artifact.
+
+This gate exists because v1 generated visuals on autopilot and
+shipped tasteless ones. Sketch-then-build separates the "what
+should this be?" decision from the "make it" execution, so taste
+failures get caught at the brief stage instead of in 500 lines of
+HTML.
+
+## Taste
+
+The aesthetic file's `taste` section governs visual decisions:
+
+- `taste.references` — work the user has approved as the right
+  register. The sketch phase reads these; they are *never* cited on
+  generated pages.
+- `taste.anti_patterns` — moves forbidden by default
+  (developer-doodle SVG, influence-cosplay, slideshow-of-panels,
+  decorative typography doing unearned mood work, etc.).
+- `taste.defaults` — default visual register, max metaphors per
+  composition, the "earn each element" rule, and whether to escalate
+  visual builds to the `frontend-design` subagent.
+
+Override per-handle by adding `references` and softening
+`anti_patterns` in your own `aesthetic/<handle>.yaml`.
 
 ## Aesthetic
 

@@ -91,7 +91,9 @@ def _snapshot_pipeline(run_dir: Path, formats: list[str], aesthetic_path: Path) 
     shutil.copy(PIPELINE_ROOT / "config.yaml", snap / "config.yaml")
     (snap / "aesthetic").mkdir(exist_ok=True)
     shutil.copy(aesthetic_path, snap / "aesthetic" / aesthetic_path.name)
-    # Prompts for each format this run will generate
+    # Prompts for each format this run will generate. Includes both
+    # `prompt.md` (build) and `sketch.md` (sketch phase) when present —
+    # the latter is how a format opts into the sketch-then-build flow.
     (snap / "formats").mkdir(exist_ok=True)
     for fmt in formats:
         src = PIPELINE_ROOT / "formats" / fmt
@@ -105,18 +107,26 @@ def _snapshot_pipeline(run_dir: Path, formats: list[str], aesthetic_path: Path) 
 
 
 def _write_next_md(run_dir: Path, source_path: Path, formats: list[str], aesthetic_path: Path) -> None:
-    """Write a NEXT.md with copy-paste instructions the agent executes."""
+    """Write a NEXT.md with copy-paste instructions the agent executes.
+
+    Formats that ship a `sketch.md` next to their `prompt.md` get a
+    sketch-then-build flow in NEXT.md: the sketch phase runs first,
+    halts for user approval (`_decision.md`), and only then does
+    `prompt.md` run. Formats without a `sketch.md` run straight through.
+    """
     lines: list[str] = []
     lines.append(f"# next steps for run `{run_dir.name}`")
     lines.append("")
     lines.append("This run's canonical source and a frozen snapshot of the")
     lines.append("pipeline prompts + aesthetic are in this folder. An agent")
     lines.append("(Claude Code / Cursor / etc.) should now execute each format")
-    lines.append("prompt below, in order, and write the output to this folder.")
+    lines.append("below, in order, and write the output to this folder.")
     lines.append("")
     lines.append(f"- Source:     `{source_path.relative_to(run_dir)}`")
     lines.append(f"- Aesthetic:  `_pipeline-snapshot/aesthetic/{aesthetic_path.name}`")
     lines.append("")
+
+    aesthetic_rel = f"_pipeline-snapshot/aesthetic/{aesthetic_path.name}"
 
     for fmt in formats:
         out_file = {
@@ -124,21 +134,63 @@ def _write_next_md(run_dir: Path, source_path: Path, formats: list[str], aesthet
             "tweet-thread": "tweet-thread.md",
             "explainer-video": "explainer-video.html",
         }.get(fmt, f"{fmt}.out")
+
+        fmt_dir = PIPELINE_ROOT / "formats" / fmt
+        has_sketch = (fmt_dir / "sketch.md").exists()
         prompt_path = f"_pipeline-snapshot/formats/{fmt}/prompt.md"
+        sketch_path = f"_pipeline-snapshot/formats/{fmt}/sketch.md"
+
         lines.append(f"## format: {fmt}")
         lines.append("")
-        lines.append(f"1. Read `{prompt_path}` end to end.")
-        lines.append(f"2. Substitute these paths:")
-        lines.append(f"   - `{{{{source_path}}}}` → `source.md`")
-        lines.append(f"   - `{{{{aesthetic_path}}}}` → `_pipeline-snapshot/aesthetic/{aesthetic_path.name}`")
-        lines.append(f"   - `{{{{output_path}}}}` → `{out_file}`")
-        if fmt == "tweet-thread":
-            lines.append(f"   - `{{{{blog_path}}}}` → `blog.md`       (if already generated)")
-            lines.append(f"   - `{{{{video_path}}}}` → `explainer-video.html` (if already generated)")
-        if fmt == "explainer-video":
-            lines.append(f"   - `{{{{blog_path}}}}` → `blog.md`       (optional, may not exist)")
-        lines.append(f"3. Follow the prompt's instructions; write the output to `{out_file}`.")
-        lines.append("")
+
+        if has_sketch:
+            lines.append("This format uses the **sketch-then-build** flow. Do not")
+            lines.append("skip the sketch phase. Do not generate the artifact until")
+            lines.append("the user has recorded a choice in `_decision.md`.")
+            lines.append("")
+            lines.append("### phase 1 — sketch")
+            lines.append("")
+            lines.append(f"1. Read `{sketch_path}` end to end.")
+            lines.append("2. Substitute these paths:")
+            lines.append(f"   - `{{{{source_path}}}}` → `source.md`")
+            lines.append(f"   - `{{{{aesthetic_path}}}}` → `{aesthetic_rel}`")
+            lines.append(f"   - `{{{{sketches_path}}}}` → `sketches.md`")
+            lines.append(f"   - `{{{{nogo_path}}}}` → `no-go.md`")
+            lines.append("3. Produce either `sketches.md` (2–3 directions) or")
+            lines.append("   `no-go.md` (recommendation to skip). **Stop.** Present")
+            lines.append("   the result to the user. Wait for them to record a")
+            lines.append("   choice in `_decision.md`.")
+            lines.append("")
+            lines.append("### phase 2 — build (only after `_decision.md` exists)")
+            lines.append("")
+            lines.append(f"1. Read `{prompt_path}` end to end.")
+            lines.append("2. Substitute these paths:")
+            lines.append(f"   - `{{{{source_path}}}}` → `source.md`")
+            lines.append(f"   - `{{{{decision_path}}}}` → `_decision.md`")
+            lines.append(f"   - `{{{{aesthetic_path}}}}` → `{aesthetic_rel}`")
+            lines.append(f"   - `{{{{output_path}}}}` → `{out_file}`")
+            lines.append(f"3. The prompt verifies its prereqs. If `_decision.md`")
+            lines.append("   is missing or `chosen: none`, write `build-skipped.md`")
+            lines.append("   and stop. Otherwise build the artifact.")
+            lines.append("")
+        else:
+            lines.append(f"1. Read `{prompt_path}` end to end.")
+            lines.append("2. Substitute these paths:")
+            lines.append(f"   - `{{{{source_path}}}}` → `source.md`")
+            lines.append(f"   - `{{{{aesthetic_path}}}}` → `{aesthetic_rel}`")
+            lines.append(f"   - `{{{{output_path}}}}` → `{out_file}`")
+            if fmt == "tweet-thread":
+                lines.append(f"   - `{{{{blog_path}}}}` → `blog.md`       (if already generated)")
+                lines.append(f"   - `{{{{video_path}}}}` → `explainer-video.html` (if already generated)")
+            lines.append(f"3. Follow the prompt's instructions; write the output to `{out_file}`.")
+            lines.append("")
+
+    lines.append("---")
+    lines.append("")
+    lines.append("Any format may legitimately produce a `no-go.md` or")
+    lines.append("`build-skipped.md` instead of an artifact. That is a valid")
+    lines.append("completion, not a failure.")
+    lines.append("")
 
     (run_dir / "NEXT.md").write_text("\n".join(lines))
 

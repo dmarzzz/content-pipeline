@@ -55,14 +55,68 @@ format_specific:
     opening: "one tweet that stands on its own, even for people who don't click through"
     citations: "inline for claims that need anchoring; full sources live in the blog"
     closing: "link to the blog post + one-line of the post's final takeaway"
-    pair_with_video: true   # if an explainer video was produced, embed it
+    pair_with_video: false   # default off in v2: only embed when an approved explainer was actually built
 
   explainer-video:
-    length_target_seconds: [60, 180]
-    style: "scrollytelling HTML. Self-contained single file. No external deps."
-    animation: "lightweight SVG/CSS transitions; no heavy libraries"
+    # v2: a single sustained composition, not a slideshow. Sketch phase
+    # is required (see formats/explainer-video/sketch.md). Build phase
+    # refuses to run without an approved direction in `_decision.md`.
+    length_target_seconds: [40, 120]
+    require_sketch_phase: true
+    require_visual_claim: true        # build refuses without one
+    require_decision_file: true       # build refuses without _decision.md
+    default_form: "single-composition"   # vs. "slideshow" (forbidden by default)
     music: "no audio"
-    caption_track: "none (embed captions as text overlay when needed)"
+    caption_track: "captions in real DOM nodes; never baked into SVG"
+    self_contained: true
+
+# ── Taste ────────────────────────────────────────────────────────────
+# Governs visual decisions across formats. Strict by default: restraint
+# as a system, not as a costume. Override per-handle in your own
+# aesthetic file by populating `references` and softening
+# `anti_patterns` if you have specific reasons.
+taste:
+  # User-approved references. Empty by default. Add work that hits the
+  # right register: designers, record covers, websites, photographers,
+  # films. The sketch phase reads these before proposing directions.
+  # These are NEVER cited on generated pages — embody, don't tag.
+  references: []
+    # Example shape (uncomment and edit per personal aesthetic):
+    # - { name: "Russell Mills, Eno sleeve work",   url: "...", why: "single-image discipline" }
+    # - { name: "Edward Tufte, sparklines",          url: "...", why: "data is the visual" }
+    # - { name: "Jonathan Hoefler, type specimens",  url: "...", why: "typographic-first composition" }
+
+  # Specific moves to avoid. These exist because past runs produced
+  # them and the user rejected them. Override only with a reason.
+  anti_patterns:
+    - "developer-doodle SVG: rectangle-with-rays diagrams, contribution-graph grids, outline-stroke icon sets (key, clock, lock, padlock), rotated rubber-stamps"
+    - "influence-cosplay: oblique-strategies cards, named-style citations on the page, paper-noise filters as instant 'mood'"
+    - "slideshow-of-panels structure when one sustained composition would carry the argument"
+    - "decorative italic-serif typography doing mood work the rest of the composition hasn't earned"
+    - "centered-text-in-flexbox with no compositional intelligence; default flex-center is not a layout"
+    - "more than one visual metaphor per composition"
+    - "decorative elements that make no claim the text alone couldn't"
+
+  defaults:
+    # Default visual register for new compositions. The sketch phase
+    # may pick a different register and justify why; the build phase
+    # then enforces the chosen one as the only one.
+    # Allowed: typographic-first | single-image | generative-system | data-driven
+    visual_register: "typographic-first"
+
+    # Soft cap on visual metaphors per composition. Past 1, the
+    # additions had better be load-bearing.
+    max_visual_metaphors: 1
+
+    # Every element earns its place or is removed. The sketch must
+    # name what it deliberately omits.
+    earn_each_element: true
+
+    # When the chosen sketch implies serious visual design work
+    # (custom typography, layout, generative system), the build phase
+    # SHOULD escalate to the `frontend-design` subagent rather than
+    # hand-rolling code.
+    escalate_to_frontend_design: true
 
 visual_identity:
   primary_color: "#111111"
